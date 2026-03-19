@@ -11,6 +11,7 @@ import (
 
 	"github.com/auron/user-service/config"
 	"github.com/auron/user-service/handlers"
+	"github.com/auron/user-service/models"
 	"github.com/auron/user-service/repository"
 	"github.com/auron/user-service/service"
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+
+	// Auto migrate database tables
+	if err := db.AutoMigrate(&models.User{}, &models.Address{}); err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
+	}
+	log.Println("Database migration completed")
 
 	// Setup Redis
 	redisClient, err := setupRedis(cfg.RedisURL)

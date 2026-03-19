@@ -1,0 +1,460 @@
+# Auron E-Commerce Platform - Docker Compose
+# Production-grade infrastructure for microservices architecture
+
+services:
+  # ============================================================
+  # FRONTEND
+  # ============================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api
+    depends_on:
+      - api-gateway
+    networks:
+      - auron-network
+    restart: unless-stopped
+
+  # ============================================================
+  # API GATEWAY
+  # ============================================================
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - USER_SERVICE_URL=http://user-service:8081
+      - PRODUCT_SERVICE_URL=http://product-service:8082
+      - ORDER_SERVICE_URL=http://order-service:8083
+      - PAYMENT_SERVICE_URL=http://payment-service:8084
+      - INVENTORY_SERVICE_URL=http://inventory-service:8085
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_PUBLIC_KEY=/run/secrets/jwt-public-key
+    depends_on:
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+    networks:
+      - auron-network
+    restart: unless-stopped
+
+  # ============================================================
+  # MICROSERVICES
+  # ============================================================
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DATABASE_URL=postgres://auron:auron_pass@users-db:5432/users_db?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_PRIVATE_KEY=/run/secrets/jwt-private-key
+      - JWT_PUBLIC_KEY=/run/secrets/jwt-public-key
+      - JWT_ACCESS_TTL=15m
+      - JWT_REFRESH_TTL=168h
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      users-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  product-service:
+    build:
+      context: ./services/product-service
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - DATABASE_URL=postgres://auron:auron_pass@products-db:5433/products_db?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_TTL=5m
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      products-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - DATABASE_URL=postgres://auron:auron_pass@orders-db:5434/orders_db?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - DATABASE_URL=postgres://auron:auron_pass@payments-db:5435/payments_db?sslmode=disable
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      payments-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - DATABASE_URL=postgres://auron:auron_pass@products-db:5433/products_db?sslmode=disable
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      products-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "8086:8086"
+    environment:
+      - PORT=8086
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-placeholder}
+      - FROM_EMAIL=${FROM_EMAIL:-noreply@auron.shop}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-placeholder}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-placeholder}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER:-placeholder}
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================================
+  # DATABASES
+  # ============================================================
+  users-db:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=auron
+      - POSTGRES_PASSWORD=auron_pass
+      - POSTGRES_DB=users_db
+    volumes:
+      - users-db-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-users.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auron -d users_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  products-db:
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=auron
+      - POSTGRES_PASSWORD=auron_pass
+      - POSTGRES_DB=products_db
+    volumes:
+      - products-db-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-products.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auron -d products_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orders-db:
+    image: postgres:15-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=auron
+      - POSTGRES_PASSWORD=auron_pass
+      - POSTGRES_DB=orders_db
+    volumes:
+      - orders-db-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-orders.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auron -d orders_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payments-db:
+    image: postgres:15-alpine
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_USER=auron
+      - POSTGRES_PASSWORD=auron_pass
+      - POSTGRES_DB=payments_db
+    volumes:
+      - payments-db-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-payments.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auron -d payments_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # MESSAGE BROKER
+  # ============================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_LOG_RETENTION_HOURS: 168
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # CACHE
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # OBSERVABILITY
+  # ============================================================
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - auron-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # KAFKA TOPICS CREATOR (run once on startup)
+  # ============================================================
+  kafka-topics-creator:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...'
+        cub kafka-ready -b kafka:9092 1 40
+        echo 'Creating Kafka topics...'
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 6 --replication-factor 1 --topic user.registered
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 6 --replication-factor 1 --topic order.created
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 6 --replication-factor 1 --topic payment.processed
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 6 --replication-factor 1 --topic payment.failed
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 6 --replication-factor 1 --topic inventory.updated
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1 --topic inventory.failed
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1 --topic notification.dlq
+        echo 'Kafka topics created successfully!'
+      "
+    networks:
+      - auron-network
+
+networks:
+  auron-network:
+    driver: bridge
+
+volumes:
+  users-db-data:
+  products-db-data:
+  orders-db-data:
+  payments-db-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:

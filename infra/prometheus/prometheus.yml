@@ -1,0 +1,74 @@
+# Prometheus configuration for Auron E-Commerce Platform
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'auron-local'
+    environment: 'development'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8080']
+    metrics_path: '/metrics'
+
+  # User Service
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:8081']
+    metrics_path: '/metrics'
+
+  # Product Service
+  - job_name: 'product-service'
+    static_configs:
+      - targets: ['product-service:8082']
+    metrics_path: '/metrics'
+
+  # Order Service
+  - job_name: 'order-service'
+    static_configs:
+      - targets: ['order-service:8083']
+    metrics_path: '/metrics'
+
+  # Payment Service
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:8084']
+    metrics_path: '/metrics'
+
+  # Inventory Service
+  - job_name: 'inventory-service'
+    static_configs:
+      - targets: ['inventory-service:8085']
+    metrics_path: '/metrics'
+
+  # Notification Service
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:8086']
+    metrics_path: '/metrics'
+
+  # Kafka
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+    metrics_path: '/metrics'
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']

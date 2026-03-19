@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"github.com/auron/user-service/config"
@@ -55,7 +56,7 @@ func (s *UserService) Login(email, password string) (string, string, error) {
 	refreshToken := uuid.New().String()
 
 	// Store refresh token in Redis
-	s.redis.Set(s.redis.Context(), "refresh:"+refreshToken, user.ID.String(), 7*24*time.Hour)
+	s.redis.Set(context.Background(), "refresh:"+refreshToken, user.ID.String(), 7*24*time.Hour)
 
 	return accessToken, refreshToken, nil
 }

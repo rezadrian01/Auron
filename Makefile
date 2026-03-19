@@ -56,7 +56,7 @@ help:
 .PHONY: up
 up:
 	@echo "$(GREEN)Starting full stack...$(NC)"
-	cd infra && docker compose up --build -d
+	docker compose up --build -d
 	@echo "$(GREEN)Services started!$(NC)"
 	@echo "Frontend:       http://localhost:3000"
 	@echo "API Gateway:    http://localhost:8080"
@@ -66,7 +66,7 @@ up:
 .PHONY: down
 down:
 	@echo "$(YELLOW)Stopping services...$(NC)"
-	cd infra && docker compose down
+	docker compose down
 
 .PHONY: restart
 restart: down up
@@ -74,7 +74,7 @@ restart: down up
 .PHONY: dev
 dev:
 	@echo "$(GREEN)Starting in development mode with hot reload...$(NC)"
-	cd infra && docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 
 # ============================================================
 # DATABASE MIGRATIONS
@@ -139,7 +139,7 @@ load-test:
 
 .PHONY: logs
 logs:
-	cd infra && docker compose logs -f
+	docker compose logs -f
 
 .PHONY: logs-svc
 logs-svc:
@@ -147,11 +147,11 @@ ifndef SERVICE
 	@echo "$(YELLOW)Usage: make logs-svc SERVICE=order-service$(NC)"
 	@exit 1
 endif
-	cd infra && docker compose logs -f $(SERVICE)
+	docker compose logs -f $(SERVICE)
 
 .PHONY: ps
 ps:
-	cd infra && docker compose ps
+	docker compose ps
 
 .PHONY: seed
 seed:
@@ -175,7 +175,7 @@ kafka-topics:
 clean:
 	@echo "$(RED)WARNING: This will remove all data!$(NC)"
 	@echo "$(RED)Press Ctrl+C to cancel, or enter to continue...$(NC)"
-	@read -r && cd infra && docker compose down -v --remove-orphans
+	@read -r && docker compose down -v --remove-orphans
 
 .PHONY: health
 health:
@@ -205,7 +205,7 @@ build:
 .PHONY: build-docker
 build-docker:
 	@echo "$(GREEN)Building all Docker images...$(NC)"
-	cd infra && docker compose build
+	docker compose build
 
 # ============================================================
 # DEVELOPMENT

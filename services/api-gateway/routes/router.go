@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/auron/api-gateway/config"
 	"github.com/auron/api-gateway/middleware"
 	"github.com/auron/api-gateway/proxy"
@@ -26,7 +28,7 @@ func Setup(router *gin.Engine, cfg *config.Config) {
 	// Auth routes (no auth required)
 	auth := api.Group("/auth")
 	auth.Use(middleware.RequestID())
-	auth.Use(middleware.RateLimiter(middleware.NewRateLimiter(20, ))) // 20 req/min for auth
+	auth.Use(middleware.RateLimit(middleware.NewInMemoryRateLimiter(20, time.Minute))) // 20 req/min for auth
 	{
 		auth.POST("/register", proxyHandler.ProxyToUserService)
 		auth.POST("/login", proxyHandler.ProxyToUserService)

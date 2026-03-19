@@ -5,24 +5,26 @@ import (
 )
 
 type Config struct {
-	Port            string
-	SendGridAPIKey  string
-	FromEmail       string
-	TwilioAccountSID string
-	TwilioAuthToken string
-	TwilioFromNumber string
-	KafkaBrokers    []string
+	Port             string
+	SMTPHost         string
+	SMTPPort         string
+	SMTPFrom         string
+	SMTPSecure       bool
+	SMTPUser         string
+	SMTPPass         string
+	KafkaBrokers     []string
 }
 
 func Load() *Config {
 	return &Config{
-		Port:             getEnv("PORT", "8086"),
-		SendGridAPIKey:   getEnv("SENDGRID_API_KEY", ""),
-		FromEmail:        getEnv("FROM_EMAIL", "noreply@auron.shop"),
-		TwilioAccountSID: getEnv("TWILIO_ACCOUNT_SID", ""),
-		TwilioAuthToken:  getEnv("TWILIO_AUTH_TOKEN", ""),
-		TwilioFromNumber: getEnv("TWILIO_FROM_NUMBER", ""),
-		KafkaBrokers:     getEnvSlice("KAFKA_BROKERS", "localhost:9092"),
+		Port:       getEnv("PORT", "8086"),
+		SMTPHost:   getEnv("SMTP_HOST", "smtp-host"),
+		SMTPPort:   getEnv("SMTP_PORT", "587"),
+		SMTPFrom:   getEnv("SMTP_FROM", "noreply@auron.shop"),
+		SMTPSecure: getEnv("SMTP_SECURE", "false") == "true",
+		SMTPUser:   getEnv("SMTP_USER", ""),
+		SMTPPass:   getEnv("SMTP_PASS", ""),
+		KafkaBrokers: getEnvSlice("KAFKA_BROKERS", "localhost:9092"),
 	}
 }
 

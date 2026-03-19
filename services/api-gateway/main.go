@@ -10,7 +10,6 @@ import (
 	"github.com/auron/api-gateway/config"
 	"github.com/auron/api-gateway/middleware"
 	"github.com/auron/api-gateway/routes"
-	"github.com/auron/shared/middleware/recovery"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,7 +23,7 @@ func main() {
 
 	// Global middleware
 	router.Use(gin.Logger())
-	router.Use(recovery.Recovery())
+	router.Use(middleware.Recovery())
 	router.Use(middleware.RequestID())
 
 	// Health check endpoint (no auth required)
@@ -37,9 +36,7 @@ func main() {
 	})
 
 	// Prometheus metrics endpoint
-	router.GET("/metrics", gin.BasicAuth(gin.Accounts{
-		"prometheus": "prometheus",
-	}), func(c *gin.Context) {
+	router.GET("/metrics", func(c *gin.Context) {
 		c.String(200, "# Prometheus metrics endpoint\n")
 	})
 
@@ -53,7 +50,6 @@ func main() {
 	go func() {
 		<-quit
 		fmt.Println("\nShutting down server...")
-		// Add cleanup if needed
 		os.Exit(0)
 	}()
 

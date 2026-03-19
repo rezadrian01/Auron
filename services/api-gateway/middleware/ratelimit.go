@@ -3,10 +3,10 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
 // RateLimiter defines the interface for rate limiting
@@ -14,31 +14,8 @@ type RateLimiter interface {
 	Allow(key string) (bool, error)
 }
 
-// RedisRateLimiter implements rate limiting using Redis
-type RedisRateLimiter struct {
-	client      *redis.Client
-	maxRequest  int
-	window      time.Duration
-}
-
-// NewRedisRateLimiter creates a new Redis-based rate limiter
-func NewRedisRateLimiter(redisURL string, maxRequests int, window time.Duration) (*RedisRateLimiter, error) {
-	opt, err := redis.ParseURL(redisURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Redis URL: %w", err)
-	}
-
-	client := redis.NewClient(opt)
-
-	return &RedisRateLimiter{
-		client:     client,
-		maxRequest: maxRequests,
-		window:     window,
-	}, nil
-}
-
 // RateLimit returns a rate limiting middleware
-func RateLimiter(limiter RateLimiter) gin.HandlerFunc {
+func RateLimit(limiter RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get client IP
 		clientIP := c.ClientIP()
@@ -70,40 +47,29 @@ func RateLimiter(limiter RateLimiter) gin.HandlerFunc {
 	}
 }
 
-// Allow checks if the request is allowed
-func (r *RedisRateLimiter) Allow(key string) (bool, error) {
-	// Increment counter
-	count, err := r.client.Incr(key).Result()
-	if err != nil {
-		return false, err
-	}
-
-	// Set expiration on first request
-	if count == 1 {
-		r.client.Expire(key, r.window)
-	}
-
-	return count <= int64(r.maxRequest), nil
-}
-
-// NewRateLimiter creates a simple in-memory rate limiter (for testing)
-func NewRateLimiter(maxRequests int, window time.Duration) *SimpleRateLimiter {
-	return &SimpleRateLimiter{
+// NewInMemoryRateLimiter creates a simple in-memory rate limiter
+func NewInMemoryRateLimiter(maxRequests int, window time.Duration) *InMemoryRateLimiter {
+	return &InMemoryRateLimiter{
 		maxRequests: maxRequests,
-		window:      window,
-		requests:    make(map[string][]time.Time),
+		window:     window,
+		mu:         sync.Mutex{},
+		requests:   make(map[string][]time.Time),
 	}
 }
 
-// SimpleRateLimiter is an in-memory rate limiter
-type SimpleRateLimiter struct {
+// InMemoryRateLimiter is an in-memory rate limiter
+type InMemoryRateLimiter struct {
 	maxRequests int
-	window      time.Duration
-	requests    map[string][]time.Time
+	window     time.Duration
+	mu         sync.Mutex
+	requests   map[string][]time.Time
 }
 
 // Allow checks if the request is allowed
-func (s *SimpleRateLimiter) Allow(key string) (bool, error) {
+func (s *InMemoryRateLimiter) Allow(key string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	now := time.Now()
 	oldestAllowed := now.Add(-s.window)
 

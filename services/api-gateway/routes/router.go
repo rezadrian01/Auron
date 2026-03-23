@@ -13,6 +13,13 @@ import (
 func Setup(router *gin.Engine, cfg *config.Config) {
 	// Create proxy handler
 	proxyHandler := proxy.NewProxyHandler(cfg)
+	toUserAuthService := proxyHandler.ProxyToWithStrip(config.ServiceUser, "/api/auth")
+	toUserAuthLegacyService := proxyHandler.ProxyToWithStrip(config.ServiceUser, "/api")
+	toUserService := proxyHandler.ProxyToWithStrip(config.ServiceUser, "/api/users")
+	toProductService := proxyHandler.ProxyTo(config.ServiceProduct)
+	toOrderService := proxyHandler.ProxyTo(config.ServiceOrder)
+	toPaymentService := proxyHandler.ProxyTo(config.ServicePayment)
+	toInventoryService := proxyHandler.ProxyTo(config.ServiceInventory)
 
 	// API v1 group
 	api := router.Group("/api")
@@ -30,28 +37,42 @@ func Setup(router *gin.Engine, cfg *config.Config) {
 	auth.Use(middleware.RequestID())
 	auth.Use(middleware.RateLimit(middleware.NewInMemoryRateLimiter(20, time.Minute))) // 20 req/min for auth
 	{
-		auth.POST("/register", proxyHandler.ProxyToUserService)
-		auth.POST("/login", proxyHandler.ProxyToUserService)
-		auth.POST("/refresh", proxyHandler.ProxyToUserService)
+		auth.POST("/register", toUserAuthService)
+		auth.POST("/login", toUserAuthService)
+		auth.POST("/refresh", toUserAuthService)
 	}
+
+	// Backward-compatible auth aliases:
+	// /api/login, /api/register, /api/refresh
+	api.POST("/register", toUserAuthLegacyService)
+	api.POST("/register/", toUserAuthLegacyService)
+	api.POST("/login", toUserAuthLegacyService)
+	api.POST("/login/", toUserAuthLegacyService)
+	api.POST("/refresh", toUserAuthLegacyService)
+	api.POST("/refresh/", toUserAuthLegacyService)
 
 	// Protected auth routes
 	authProtected := auth.Group("")
 	authProtected.Use(middleware.RequestID())
 	// Note: Some auth routes need token validation, handled by user service
 	{
-		authProtected.POST("/logout", proxyHandler.ProxyToUserService)
+		authProtected.POST("/logout", toUserAuthService)
 	}
+
+	// Backward-compatible logout alias
+	api.POST("/logout", toUserAuthLegacyService)
+	api.POST("/logout/", toUserAuthLegacyService)
 
 	// User routes (auth required)
 	users := api.Group("/users")
 	users.Use(middleware.RequestID())
 	{
-		users.GET("/me", proxyHandler.ProxyToUserService)
-		users.PUT("/me", proxyHandler.ProxyToUserService)
-		users.POST("/me/addresses", proxyHandler.ProxyToUserService)
-		users.GET("/me/addresses", proxyHandler.ProxyToUserService)
-		users.DELETE("/me/addresses/:id", proxyHandler.ProxyToUserService)
+		users.GET("/me", toUserService)
+		users.PUT("/me", toUserService)
+		users.POST("/me/addresses", toUserService)
+		users.GET("/me/addresses", toUserService)
+		users.PUT("/me/addresses/:id", toUserService)
+		users.DELETE("/me/addresses/:id", toUserService)
 	}
 
 	// Product routes (public read, admin write)
@@ -59,57 +80,61 @@ func Setup(router *gin.Engine, cfg *config.Config) {
 	products.Use(middleware.RequestID())
 	{
 		// Public: read operations
-		products.GET("", proxyHandler.ProxyToProductService)
-		products.GET("/:id", proxyHandler.ProxyToProductService)
+		products.GET("", toProductService)
+		products.GET("/:id", toProductService)
 
 		// Protected: admin only
-		products.POST("", proxyHandler.ProxyToProductService)
-		products.PUT("/:id", proxyHandler.ProxyToProductService)
-		products.DELETE("/:id", proxyHandler.ProxyToProductService)
+		products.POST("", toProductService)
+		products.PUT("/:id", toProductService)
+		products.DELETE("/:id", toProductService)
 	}
 
 	// Category routes
 	categories := api.Group("/categories")
 	categories.Use(middleware.RequestID())
 	{
-		categories.GET("", proxyHandler.ProxyToProductService)
-		categories.POST("", proxyHandler.ProxyToProductService)
+		categories.GET("", toProductService)
+		categories.POST("", toProductService)
 	}
 
 	// Cart routes (auth required)
 	cart := api.Group("/cart")
 	cart.Use(middleware.RequestID())
 	{
-		cart.GET("", proxyHandler.ProxyToOrderService)
-		cart.POST("/items", proxyHandler.ProxyToOrderService)
-		cart.PUT("/items/:id", proxyHandler.ProxyToOrderService)
-		cart.DELETE("/items/:id", proxyHandler.ProxyToOrderService)
+		cart.GET("", toOrderService)
+		cart.POST("/items", toOrderService)
+		cart.PUT("/items/:id", toOrderService)
+		cart.DELETE("/items/:id", toOrderService)
 	}
 
 	// Order routes (auth required)
 	orders := api.Group("/orders")
 	orders.Use(middleware.RequestID())
 	{
-		orders.GET("", proxyHandler.ProxyToOrderService)
-		orders.POST("", proxyHandler.ProxyToOrderService)
-		orders.GET("/:id", proxyHandler.ProxyToOrderService)
-		orders.PUT("/:id/cancel", proxyHandler.ProxyToOrderService)
+		orders.GET("", toOrderService)
+		orders.POST("", toOrderService)
+		orders.GET("/:id", toOrderService)
+		orders.PUT("/:id/cancel", toOrderService)
 	}
 
 	// Payment routes (auth required)
 	payments := api.Group("/payments")
 	payments.Use(middleware.RequestID())
 	{
-		payments.GET("/:id", proxyHandler.ProxyToPaymentService)
+		payments.GET("/:id", toPaymentService)
 		// Stripe webhook - no auth, handled by payment service
-		payments.POST("/webhook/stripe", proxyHandler.ProxyToPaymentService)
+		payments.POST("/webhook/stripe", toPaymentService)
 	}
 
 	// Inventory routes (admin only)
 	inventory := api.Group("/inventory")
 	inventory.Use(middleware.RequestID())
 	{
-		inventory.GET("/:product_id", proxyHandler.ProxyToInventoryService)
-		inventory.PUT("/:product_id", proxyHandler.ProxyToInventoryService)
+		inventory.GET("/:product_id", toInventoryService)
+		inventory.PUT("/:product_id", toInventoryService)
 	}
+
+	// Generic service route for future services.
+	// Example: /api/notification/health -> SERVICE_URL_NOTIFICATION
+	api.Any("/:service/*proxyPath", proxyHandler.ProxyByPathParam("service"))
 }

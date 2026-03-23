@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http/httputil"
 	"net/url"
 	"strings"
@@ -12,57 +13,79 @@ import (
 
 // ProxyHandler handles reverse proxying to downstream services
 type ProxyHandler struct {
-	userServiceProxy      *httputil.ReverseProxy
-	productServiceProxy   *httputil.ReverseProxy
-	orderServiceProxy     *httputil.ReverseProxy
-	paymentServiceProxy   *httputil.ReverseProxy
-	inventoryServiceProxy *httputil.ReverseProxy
+	proxies map[string]*httputil.ReverseProxy
 }
 
 // NewProxyHandler creates a new proxy handler
 func NewProxyHandler(cfg *config.Config) *ProxyHandler {
-	return &ProxyHandler{
-		userServiceProxy:      newSingleHostProxy(cfg.UserServiceURL),
-		productServiceProxy:   newSingleHostProxy(cfg.ProductServiceURL),
-		orderServiceProxy:     newSingleHostProxy(cfg.OrderServiceURL),
-		paymentServiceProxy:   newSingleHostProxy(cfg.PaymentServiceURL),
-		inventoryServiceProxy: newSingleHostProxy(cfg.InventoryServiceURL),
+	proxies := make(map[string]*httputil.ReverseProxy, len(cfg.ServiceURLs))
+	for serviceName, targetURL := range cfg.ServiceURLs {
+		proxy, err := newSingleHostProxy(targetURL)
+		if err != nil {
+			continue
+		}
+
+		proxies[serviceName] = proxy
 	}
+
+	return &ProxyHandler{proxies: proxies}
 }
 
 // newSingleHostProxy creates a reverse proxy for a single host
-func newSingleHostProxy(target string) *httputil.ReverseProxy {
-	targetURL, _ := url.Parse(target)
-	return httputil.NewSingleHostReverseProxy(targetURL)
+func newSingleHostProxy(target string) (*httputil.ReverseProxy, error) {
+	targetURL, err := url.Parse(target)
+	if err != nil || targetURL.Scheme == "" || targetURL.Host == "" {
+		return nil, fmt.Errorf("invalid target url: %s", target)
+	}
+
+	return httputil.NewSingleHostReverseProxy(targetURL), nil
 }
 
-// ProxyToUserService proxies requests to the user service
-func (p *ProxyHandler) ProxyToUserService(c *gin.Context) {
-	p.handleProxy(c, p.userServiceProxy)
+// ProxyTo returns a Gin handler that proxies to the configured downstream service.
+func (p *ProxyHandler) ProxyTo(serviceName string) gin.HandlerFunc {
+	return p.ProxyToWithStrip(serviceName, "/api")
 }
 
-// ProxyToProductService proxies requests to the product service
-func (p *ProxyHandler) ProxyToProductService(c *gin.Context) {
-	p.handleProxy(c, p.productServiceProxy)
+// ProxyToWithStrip returns a Gin handler that proxies to the configured downstream service
+// while stripping a custom prefix from the incoming request path.
+func (p *ProxyHandler) ProxyToWithStrip(serviceName, stripPrefix string) gin.HandlerFunc {
+	serviceName = strings.ToLower(strings.TrimSpace(serviceName))
+
+	return func(c *gin.Context) {
+		proxy, exists := p.proxyForService(serviceName)
+		if !exists {
+			c.JSON(502, gin.H{
+				"error":   "service unavailable",
+				"service": serviceName,
+			})
+			return
+		}
+
+		p.handleProxy(c, proxy, stripPrefix)
+	}
 }
 
-// ProxyToOrderService proxies requests to the order service
-func (p *ProxyHandler) ProxyToOrderService(c *gin.Context) {
-	p.handleProxy(c, p.orderServiceProxy)
-}
+// ProxyByPathParam routes requests to a service resolved from a path parameter.
+// Example: /api/notification/send -> service=notification, forwarded path=/send.
+func (p *ProxyHandler) ProxyByPathParam(param string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		serviceName := strings.ToLower(strings.TrimSpace(c.Param(param)))
+		proxy, exists := p.proxyForService(serviceName)
+		if !exists {
+			c.JSON(502, gin.H{
+				"error":   "service unavailable",
+				"service": serviceName,
+			})
+			return
+		}
 
-// ProxyToPaymentService proxies requests to the payment service
-func (p *ProxyHandler) ProxyToPaymentService(c *gin.Context) {
-	p.handleProxy(c, p.paymentServiceProxy)
-}
-
-// ProxyToInventoryService proxies requests to the inventory service
-func (p *ProxyHandler) ProxyToInventoryService(c *gin.Context) {
-	p.handleProxy(c, p.inventoryServiceProxy)
+		stripPrefix := "/api/" + serviceName
+		p.handleProxy(c, proxy, stripPrefix)
+	}
 }
 
 // handleProxy handles the actual proxying
-func (p *ProxyHandler) handleProxy(c *gin.Context, proxy *httputil.ReverseProxy) {
+func (p *ProxyHandler) handleProxy(c *gin.Context, proxy *httputil.ReverseProxy, stripPrefix string) {
 	// Get request ID from context
 	requestID := middleware.GetRequestID(c)
 	if requestID != "" {
@@ -82,11 +105,23 @@ func (p *ProxyHandler) handleProxy(c *gin.Context, proxy *httputil.ReverseProxy)
 
 	// Modify the request path (strip /api prefix)
 	path := c.Request.URL.Path
-	if strings.HasPrefix(path, "/api") {
-		path = strings.TrimPrefix(path, "/api")
+	if stripPrefix != "" && strings.HasPrefix(path, stripPrefix) {
+		path = strings.TrimPrefix(path, stripPrefix)
+	}
+	if path == "" {
+		path = "/"
 	}
 	c.Request.URL.Path = path
 
 	// Handle the proxy
 	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+func (p *ProxyHandler) proxyForService(serviceName string) (*httputil.ReverseProxy, bool) {
+	proxy, exists := p.proxies[serviceName]
+	if !exists {
+		return nil, false
+	}
+
+	return proxy, true
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http/httputil"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/auron/api-gateway/config"
@@ -17,18 +18,25 @@ type ProxyHandler struct {
 }
 
 // NewProxyHandler creates a new proxy handler
-func NewProxyHandler(cfg *config.Config) *ProxyHandler {
+func NewProxyHandler(cfg *config.Config) (*ProxyHandler, error) {
 	proxies := make(map[string]*httputil.ReverseProxy, len(cfg.ServiceURLs))
+	invalidServices := make([]string, 0)
 	for serviceName, targetURL := range cfg.ServiceURLs {
 		proxy, err := newSingleHostProxy(targetURL)
 		if err != nil {
+			invalidServices = append(invalidServices, fmt.Sprintf("%s=%s", serviceName, targetURL))
 			continue
 		}
 
 		proxies[serviceName] = proxy
 	}
 
-	return &ProxyHandler{proxies: proxies}
+	if len(invalidServices) > 0 {
+		sort.Strings(invalidServices)
+		return nil, fmt.Errorf("invalid service URL configuration: %s", strings.Join(invalidServices, ", "))
+	}
+
+	return &ProxyHandler{proxies: proxies}, nil
 }
 
 // newSingleHostProxy creates a reverse proxy for a single host

@@ -14,6 +14,8 @@ import (
 )
 
 func main() {
+	config.LoadDotEnvFile(".env")
+
 	// Load configuration
 	cfg := config.Load()
 
@@ -41,7 +43,10 @@ func main() {
 	})
 
 	// Setup routes
-	routes.Setup(router, cfg)
+	if err := routes.Setup(router, cfg); err != nil {
+		fmt.Printf("Failed to setup routes: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)

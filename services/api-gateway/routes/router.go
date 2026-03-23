@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/auron/api-gateway/config"
@@ -10,9 +11,12 @@ import (
 )
 
 // Setup configures all routes for the API Gateway
-func Setup(router *gin.Engine, cfg *config.Config) {
+func Setup(router *gin.Engine, cfg *config.Config) error {
 	// Create proxy handler
-	proxyHandler := proxy.NewProxyHandler(cfg)
+	proxyHandler, err := proxy.NewProxyHandler(cfg)
+	if err != nil {
+		return fmt.Errorf("create proxy handler: %w", err)
+	}
 	toUserAuthService := proxyHandler.ProxyToWithStrip(config.ServiceUser, "/api/auth")
 	toUserAuthLegacyService := proxyHandler.ProxyToWithStrip(config.ServiceUser, "/api")
 	toUserService := proxyHandler.ProxyToWithStrip(config.ServiceUser, "/api/users")
@@ -135,6 +139,8 @@ func Setup(router *gin.Engine, cfg *config.Config) {
 	}
 
 	// Generic service route for future services.
-	// Example: /api/notification/health -> SERVICE_URL_NOTIFICATION
-	api.Any("/:service/*proxyPath", proxyHandler.ProxyByPathParam("service"))
+	// Example: /api/services/notification/health -> SERVICE_URL_NOTIFICATION
+	api.Any("/services/:service/*proxyPath", proxyHandler.ProxyByPathParam("service"))
+
+	return nil
 }

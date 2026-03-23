@@ -3,6 +3,8 @@ package cmd
 import (
 	"auron/user-service/internal/domain"
 	"context"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,7 +15,7 @@ import (
 
 func setupDatabase(databaseURL string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(resolveGormLogLevel()),
 	})
 	if err != nil {
 		return nil, err
@@ -28,6 +30,22 @@ func setupDatabase(databaseURL string) (*gorm.DB, error) {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return db, nil
+}
+
+func resolveGormLogLevel() logger.LogLevel {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv("GORM_LOG_LEVEL")))
+	switch value {
+	case "silent":
+		return logger.Silent
+	case "error":
+		return logger.Error
+	case "warn", "warning":
+		return logger.Warn
+	case "info":
+		return logger.Info
+	default:
+		return logger.Warn
+	}
 }
 
 func runMigrations(db *gorm.DB) error {

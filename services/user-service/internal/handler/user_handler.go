@@ -252,13 +252,25 @@ func (h *UserHandler) UpdateAddress(c *gin.Context) {
 }
 
 func (h *UserHandler) DeleteAddress(c *gin.Context) {
-	addressID := c.Param("id")
-	if addressID == "" {
+	userID, ok := middleware.UserIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: domain.ErrUnauthorized.Error()})
+		return
+	}
+
+	addressIDRaw := c.Param("id")
+	if addressIDRaw == "" {
 		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: "address id is required"})
 		return
 	}
 
-	if err := h.service.DeleteAddress(addressID); err != nil {
+	addressID, err := uuid.Parse(addressIDRaw)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: "invalid address id"})
+		return
+	}
+
+	if err := h.service.DeleteAddress(userID, addressID); err != nil {
 		h.handleServiceError(c, err)
 		return
 	}
@@ -273,6 +285,8 @@ func (h *UserHandler) applyCookie(c *gin.Context, cfg domain.CookieConfig) {
 
 func (h *UserHandler) clearCookie(c *gin.Context, name string) {
 	c.SetSameSite(http.SameSiteStrictMode)
+	// Clear both variants to handle local HTTP (Secure=false) and prod HTTPS (Secure=true).
+	c.SetCookie(name, "", -1, "/", "", false, true)
 	c.SetCookie(name, "", -1, "/", "", true, true)
 }
 

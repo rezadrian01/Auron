@@ -120,10 +120,16 @@ func (r *UserRepository) UpdateAddress(userID, addressID uuid.UUID, req *domain.
 	return &address, nil
 }
 
-func (r *UserRepository) DeleteAddress(addressID uuid.UUID) error {
-	if err := r.db.Where("id = ?", addressID).Delete(&domain.Address{}).Error; err != nil {
-		return err
+func (r *UserRepository) DeleteAddress(userID, addressID uuid.UUID) error {
+	result := r.db.Where("id = ? AND user_id = ?", addressID, userID).Delete(&domain.Address{})
+	if result.Error != nil {
+		return result.Error
 	}
+
+	if result.RowsAffected == 0 {
+		return domain.ErrAddressNotFound
+	}
+
 	return nil
 }
 

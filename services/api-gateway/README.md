@@ -5,7 +5,7 @@
 The gateway supports two ways to route to downstream services:
 
 1. **Explicit routes** in `routes/router.go` (best for stable public API paths)
-2. **Generic pass-through route**: `/api/:service/*proxyPath`
+2. **Generic pass-through route**: `/api/services/:service/*proxyPath`
 
 Configured services are loaded from environment variables in this order:
 
@@ -47,8 +47,8 @@ In Docker Compose (`api-gateway.environment`):
 
 Use:
 
-- `GET /api/invoice/health` -> forwards to `invoice-service` path `/health`
-- `POST /api/invoice/generate` -> forwards to `/generate`
+- `GET /api/services/invoice/health` -> forwards to `invoice-service` path `/health`
+- `POST /api/services/invoice/generate` -> forwards to `/generate`
 
 #### Option B — Stable public API contract (recommended for core APIs)
 
@@ -80,7 +80,7 @@ This is optional for generic-only routing, but recommended for explicit route re
 ### 4) Smoke test
 
 ```bash
-curl -i http://localhost:8080/api/invoice/health
+curl -i http://localhost:8080/api/services/invoice/health
 ```
 
 Expected:

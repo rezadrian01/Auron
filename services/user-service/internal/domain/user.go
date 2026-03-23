@@ -197,7 +197,7 @@ type UserRepository interface {
 	GetAddressesByUserID(userID uuid.UUID) ([]Address, error)
 	AddAddress(address *Address) (*Address, error)
 	UpdateAddress(userID, addressID uuid.UUID, req *UpdateAddressRequest) (*Address, error)
-	DeleteAddress(addressID uuid.UUID) error
+	DeleteAddress(userID, addressID uuid.UUID) error
 	AddRefreshToken(token *RefreshToken) (*RefreshToken, error)
 	GetRefreshToken(tokenHash string) (*RefreshToken, error)
 	RevokeRefreshToken(tokenHash string) error
@@ -216,5 +216,5 @@ type UserService interface {
 	AddAddress(userID uuid.UUID, address *Address) (*Address, error)
 	GetAddresses(userID uuid.UUID) ([]Address, error)
 	UpdateAddress(userID, addressID uuid.UUID, req *UpdateAddressRequest) (*Address, error)
-	DeleteAddress(addressID string) error
+	DeleteAddress(userID, addressID uuid.UUID) error
 }

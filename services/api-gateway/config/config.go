@@ -2,17 +2,17 @@ package config
 
 import (
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const (
-	ServiceUser        = "user"
-	ServiceProduct     = "product"
-	ServiceOrder       = "order"
-	ServicePayment     = "payment"
-	ServiceInventory   = "inventory"
+	ServiceUser         = "user"
+	ServiceProduct      = "product"
+	ServiceOrder        = "order"
+	ServicePayment      = "payment"
+	ServiceInventory    = "inventory"
 	ServiceNotification = "notification"
 )
 

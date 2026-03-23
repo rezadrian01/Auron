@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -198,6 +199,8 @@ func (s *UserService) storeRefreshToken(userID uuid.UUID, refreshToken string) e
 }
 
 func buildAuthResponse(user *domain.User, accessToken, refreshToken string) *domain.AuthResponse {
+	secureCookie := shouldUseSecureCookies()
+
 	return &domain.AuthResponse{
 		User:         user,
 		AccessToken:  accessToken,
@@ -208,7 +211,7 @@ func buildAuthResponse(user *domain.User, accessToken, refreshToken string) *dom
 			Path:     "/",
 			MaxAge:   int(accessTokenTTL.Seconds()),
 			HttpOnly: true,
-			Secure:   true,
+			Secure:   secureCookie,
 			SameSite: "Strict",
 		},
 		RefreshTokenCookie: domain.CookieConfig{
@@ -217,10 +220,24 @@ func buildAuthResponse(user *domain.User, accessToken, refreshToken string) *dom
 			Path:     "/",
 			MaxAge:   int(refreshTokenTTL.Seconds()),
 			HttpOnly: true,
-			Secure:   true,
+			Secure:   secureCookie,
 			SameSite: "Strict",
 		},
 	}
+}
+
+func shouldUseSecureCookies() bool {
+	if value := strings.TrimSpace(os.Getenv("COOKIE_SECURE")); value != "" {
+		switch strings.ToLower(value) {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
+		}
+	}
+
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
+	return env == "prod" || env == "production"
 }
 
 func (s *UserService) RevokeToken(req *domain.RevokeTokenRequest) error {
@@ -323,12 +340,12 @@ func (s *UserService) UpdateAddress(userID, addressID uuid.UUID, req *domain.Upd
 	return s.repository.UpdateAddress(userID, addressID, req)
 }
 
-func (s *UserService) DeleteAddress(addressID string) error {
-	parsedAddressID, err := uuid.Parse(addressID)
-	if err != nil {
+func (s *UserService) DeleteAddress(userID, addressID uuid.UUID) error {
+	if userID == uuid.Nil || addressID == uuid.Nil {
 		return domain.ErrInvalidToken
 	}
-	return s.repository.DeleteAddress(parsedAddressID)
+
+	return s.repository.DeleteAddress(userID, addressID)
 }
 
 func hashPassword(password string) (string, error) {

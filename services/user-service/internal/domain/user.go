@@ -148,26 +148,20 @@ type AddressResponse struct {
 	IsDefault  bool      `json:"is_default"`
 }
 
-type UserProfileResponse struct {
-	ID        uuid.UUID         `json:"id"`
-	Email     string            `json:"email"`
-	Name      string            `json:"name"`
-	Role      string            `json:"role"`
-	Addresses []AddressResponse `json:"addresses,omitempty"`
-}
-
 // -------------------------------------------------------
 // Repository interface
 // -------------------------------------------------------
 type UserRepository interface {
-	CreateUser(user *User) error
+	CreateUser(user *User) (*User, error)
 	GetUserByEmail(email string) (*User, error)
 	GetUserByID(id uuid.UUID) (*User, error)
-	UpdateUser(user *User) error
+	UpdateUser(user *User) (*User, error)
 	DeleteUser(id uuid.UUID) error
-	AddAddress(address *Address) error
 	GetAddressesByUserID(userID uuid.UUID) ([]Address, error)
-	AddRefreshToken(token *RefreshToken) error
+	AddAddress(address *Address) (*Address, error)
+	UpdateAddress(address *Address) (*Address, error)
+	DeleteAddress(addressID uuid.UUID) error
+	AddRefreshToken(token *RefreshToken) (*RefreshToken, error)
 	GetRefreshToken(tokenHash string) (*RefreshToken, error)
 	RevokeRefreshToken(tokenHash string) error
 }
@@ -184,4 +178,6 @@ type UserService interface {
 	UpdateUserProfile(userID uuid.UUID, req *UpdateUserRequest) (*UserResponse, error)
 	AddAddress(userID uuid.UUID, address *Address) (*Address, error)
 	GetAddresses(userID uuid.UUID) ([]Address, error)
+	UpdateAddress(address *Address) (*Address, error)
+	DeleteAddress(addressID string) error
 }

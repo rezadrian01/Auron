@@ -5,6 +5,7 @@ import "errors"
 // Sentinel errors - use errors.Is() to compare
 
 var (
+	ErrPasswordMismatch   = errors.New("password and confirm password do not match")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrEmailAlreadyExists = errors.New("email already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")

@@ -64,6 +64,23 @@ func (RefreshToken) TableName() string {
 // -------------------------------------------------------
 // DTOs
 // -------------------------------------------------------
+type CookieConfig struct {
+	Name     string `json:"name"`
+	Value    string `json:"value"`
+	Path     string `json:"path"`
+	MaxAge   int    `json:"max_age"`
+	HttpOnly bool   `json:"http_only"`
+	Secure   bool   `json:"secure"`
+	SameSite string `json:"same_site"`
+}
+
+type AuthResponse struct {
+	User               *User        `json:"user"`
+	AccessToken        string       `json:"access_token"`
+	RefreshToken       string       `json:"refresh_token"`
+	AccessTokenCookie  CookieConfig `json:"access_token_cookie"`
+	RefreshTokenCookie CookieConfig `json:"refresh_token_cookie"`
+}
 
 type CreateUserRequest struct {
 	Email           string `json:"email" binding:"required,email"`
@@ -87,6 +104,26 @@ type LoginRequest struct {
 type LoginResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+type UserEnvelopeResponse struct {
+	User UserResponse `json:"user"`
+}
+
+type AddressEnvelopeResponse struct {
+	Address AddressResponse `json:"address"`
+}
+
+type AddressesEnvelopeResponse struct {
+	Addresses []AddressResponse `json:"addresses"`
 }
 
 type RefreshTokenRequest struct {
@@ -170,12 +207,12 @@ type UserRepository interface {
 // Service interface
 // -------------------------------------------------------
 type UserService interface {
-	RegisterUser(req *CreateUserRequest) (*UserResponse, error)
-	Login(req *LoginRequest) (*LoginResponse, error)
-	RefreshToken(req *RefreshTokenRequest) (*RefreshTokenResponse, error)
+	RegisterUser(req *CreateUserRequest) (*User, error)
+	Login(req *LoginRequest) (*User, string, error)
+	RefreshToken(req *RefreshTokenRequest) (string, error)
 	RevokeToken(req *RevokeTokenRequest) error
-	GetUserProfile(userID uuid.UUID) (*UserResponse, error)
-	UpdateUserProfile(userID uuid.UUID, req *UpdateUserRequest) (*UserResponse, error)
+	GetUserProfile(userID uuid.UUID) (*User, error)
+	UpdateUserProfile(userID uuid.UUID, req *UpdateUserRequest) (*User, error)
 	AddAddress(userID uuid.UUID, address *Address) (*Address, error)
 	GetAddresses(userID uuid.UUID) ([]Address, error)
 	UpdateAddress(address *Address) (*Address, error)

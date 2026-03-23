@@ -2,6 +2,7 @@ package repository
 
 import (
 	"auron/user-service/internal/domain"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -72,11 +73,51 @@ func (r *UserRepository) AddAddress(address *domain.Address) (*domain.Address, e
 	return address, nil
 }
 
-func (r *UserRepository) UpdateAddress(address *domain.Address) (*domain.Address, error) {
-	if err := r.db.Save(address).Error; err != nil {
+func (r *UserRepository) UpdateAddress(userID, addressID uuid.UUID, req *domain.UpdateAddressRequest) (*domain.Address, error) {
+	var address domain.Address
+	if err := r.db.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, domain.ErrAddressNotFound
+		}
 		return nil, err
 	}
-	return address, nil
+
+	updates := map[string]any{}
+	if req.Label != nil {
+		updates["label"] = *req.Label
+	}
+	if req.Street != nil {
+		updates["street"] = *req.Street
+	}
+	if req.City != nil {
+		updates["city"] = *req.City
+	}
+	if req.State != nil {
+		updates["state"] = *req.State
+	}
+	if req.Country != nil {
+		updates["country"] = *req.Country
+	}
+	if req.PostalCode != nil {
+		updates["postal_code"] = *req.PostalCode
+	}
+	if req.IsDefault != nil {
+		updates["is_default"] = *req.IsDefault
+	}
+
+	if len(updates) == 0 {
+		return &address, nil
+	}
+
+	if err := r.db.Model(&address).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.Where("id = ? AND user_id = ?", addressID, userID).First(&address).Error; err != nil {
+		return nil, err
+	}
+
+	return &address, nil
 }
 
 func (r *UserRepository) DeleteAddress(addressID uuid.UUID) error {

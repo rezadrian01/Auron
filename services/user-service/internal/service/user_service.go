@@ -315,11 +315,12 @@ func (s *UserService) GetAddresses(userID uuid.UUID) ([]domain.Address, error) {
 	return s.repository.GetAddressesByUserID(userID)
 }
 
-func (s *UserService) UpdateAddress(address *domain.Address) (*domain.Address, error) {
-	if address.ID == uuid.Nil {
+func (s *UserService) UpdateAddress(userID, addressID uuid.UUID, req *domain.UpdateAddressRequest) (*domain.Address, error) {
+	if addressID == uuid.Nil || userID == uuid.Nil {
 		return nil, domain.ErrInvalidToken
 	}
-	return s.repository.UpdateAddress(address)
+
+	return s.repository.UpdateAddress(userID, addressID, req)
 }
 
 func (s *UserService) DeleteAddress(addressID string) error {

@@ -242,27 +242,7 @@ func (h *UserHandler) UpdateAddress(c *gin.Context) {
 		return
 	}
 
-	address := &domain.Address{
-		ID:         addressID,
-		UserID:     userID,
-		Label:      req.Label,
-		State:      req.State,
-		PostalCode: req.PostalCode,
-	}
-	if req.Street != nil {
-		address.Street = *req.Street
-	}
-	if req.City != nil {
-		address.City = *req.City
-	}
-	if req.Country != nil {
-		address.Country = *req.Country
-	}
-	if req.IsDefault != nil {
-		address.IsDefault = *req.IsDefault
-	}
-
-	updatedAddress, updateErr := h.service.UpdateAddress(address)
+	updatedAddress, updateErr := h.service.UpdateAddress(userID, addressID, &req)
 	if updateErr != nil {
 		h.handleServiceError(c, updateErr)
 		return
@@ -302,7 +282,7 @@ func (h *UserHandler) handleServiceError(c *gin.Context, err error) {
 		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, domain.ErrForbidden):
 		c.JSON(http.StatusForbidden, domain.ErrorResponse{Error: err.Error()})
-	case errors.Is(err, domain.ErrUserNotFound):
+	case errors.Is(err, domain.ErrUserNotFound), errors.Is(err, domain.ErrAddressNotFound):
 		c.JSON(http.StatusNotFound, domain.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, domain.ErrEmailAlreadyExists):
 		c.JSON(http.StatusConflict, domain.ErrorResponse{Error: err.Error()})

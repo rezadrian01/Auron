@@ -7,6 +7,7 @@ import "errors"
 var (
 	ErrPasswordMismatch   = errors.New("password and confirm password do not match")
 	ErrUserNotFound       = errors.New("user not found")
+	ErrAddressNotFound    = errors.New("address not found")
 	ErrEmailAlreadyExists = errors.New("email already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUnauthorized       = errors.New("unauthorized")

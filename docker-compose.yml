@@ -27,6 +27,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    env_file:
+      - ./services/api-gateway/.env
     environment:
       - PORT=8080
       - USER_SERVICE_URL=http://user-service:8081
@@ -35,6 +37,8 @@ services:
       - PAYMENT_SERVICE_URL=http://payment-service:8084
       - INVENTORY_SERVICE_URL=http://inventory-service:8085
       - SERVICE_URL_NOTIFICATION=http://notification-service:8086
+      # - SERVICE_URLS=user=http://user-service:8081,product=http://product-service:8082,order=http://order-service:8083,payment=http://payment-service:8084,inventory=http://inventory-service:8085,notification=http://notification-service:8086
+      # - REDIS_URL=redis://redis:6379/0
     depends_on:
       - user-service
       - product-service
@@ -55,10 +59,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8081:8081"
+    env_file:
+      - ./services/user-service/.env
     environment:
       - PORT=8081
       - DATABASE_URL=postgres://auron:auron_pass@users-db:5432/users_db?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BROKERS=kafka:29092
     depends_on:
       users-db:
         condition: service_healthy

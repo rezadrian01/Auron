@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/auron/user-service/internal/domain"
+	"auron/user-service/internal/domain"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

@@ -9,13 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auron/user-service/config"
-	"github.com/auron/user-service/handlers"
-	"github.com/auron/user-service/models"
-	"github.com/auron/user-service/repository"
-	"github.com/auron/user-service/service"
 	"github.com/gin-gonic/gin"
+	"github.com/hashicorp/consul/agent/config"
 	"github.com/redis/go-redis/v9"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

@@ -2,6 +2,7 @@ package route
 
 import (
 	"auron/user-service/internal/handler"
+	"auron/user-service/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,7 +15,7 @@ func RegisterUserRoutes(router *gin.Engine, userHandler *handler.UserHandler) {
 	api.POST("/refresh", userHandler.RefreshToken)
 
 	protected := api.Group("")
-	protected.Use(userHandler.AuthMiddleware)
+	protected.Use(middleware.AuthMiddleware())
 	{
 		protected.POST("/logout", userHandler.Logout)
 		protected.GET("/me", userHandler.GetProfile)

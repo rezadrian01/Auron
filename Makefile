@@ -71,6 +71,11 @@ down:
 .PHONY: restart
 restart: down up
 
+.PHONY: infra-up
+infra-up:
+	@echo "$(GREEN)Starting infrastructure services...$(NC)"
+	docker compose up users-db products-db orders-db payments-db zookeeper kafka kafka-ui redis prometheus grafana -d
+
 .PHONY: dev
 dev:
 	@echo "$(GREEN)Starting in development mode with hot reload...$(NC)"

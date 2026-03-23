@@ -3,15 +3,18 @@ package cmd
 import "os"
 
 type appConfig struct {
-	DatabaseURL string
-	RedisURL    string
-	Port        string
+	DatabaseURL  string
+	RedisURL     string
+	Port         string
+	KafkaBrokers string
 }
 
 func loadConfig() appConfig {
+	loadDotEnvFile(".env")
+
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		databaseURL = "postgres://postgres:postgres@localhost:5432/users_db?sslmode=disable"
+		databaseURL = "postgres://auron:auron_pass@localhost:5432/users_db?sslmode=disable"
 	}
 
 	redisURL := os.Getenv("REDIS_URL")
@@ -24,9 +27,15 @@ func loadConfig() appConfig {
 		port = "8081"
 	}
 
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		kafkaBrokers = "localhost:9092"
+	}
+
 	return appConfig{
-		DatabaseURL: databaseURL,
-		RedisURL:    redisURL,
-		Port:        port,
+		DatabaseURL:  databaseURL,
+		RedisURL:     redisURL,
+		Port:         port,
+		KafkaBrokers: kafkaBrokers,
 	}
 }

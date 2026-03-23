@@ -39,3 +39,16 @@ func (w *kafkaPublisher) Publish(ctx context.Context, topic string, payload any)
 	slog.Debug("event published", slog.String("topic", topic))
 	return nil
 }
+
+func (w *kafkaPublisher) Close() error {
+	var closeErr error
+	for _, writer := range w.writers {
+		if writer == nil {
+			continue
+		}
+		if err := writer.Close(); err != nil && closeErr == nil {
+			closeErr = err
+		}
+	}
+	return closeErr
+}

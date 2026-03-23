@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"auron/user-service/internal/cache"
-	"auron/user-service/internal/events"
 	"auron/user-service/internal/handler"
 	"auron/user-service/internal/repository"
 	"auron/user-service/internal/service"
@@ -12,8 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"auron/user-service/internal/domain"
+
 	"github.com/redis/go-redis/v9"
-	"github.com/segmentio/kafka-go"
 	"gorm.io/gorm"
 )
 
@@ -37,13 +37,13 @@ func Run() {
 
 	userRepository := repository.NewUserRepository(db)
 	userCache := cache.NewUserCache(redisClient)
-	publisher := events.NewKafkaPublisher(map[string]*kafka.Writer{})
+	publisher := setupKafkaPublisher(config.KafkaBrokers)
 
 	userService := service.NewUserService(userRepository, userCache, publisher)
 	userHandler := handler.NewUserHandler(userService)
 
 	router := setupRouter(userHandler)
-	registerGracefulShutdown(db, redisClient)
+	registerGracefulShutdown(db, redisClient, publisher)
 
 	addr := fmt.Sprintf(":%s", config.Port)
 	fmt.Printf("Starting User Service on %s\n", addr)
@@ -52,7 +52,7 @@ func Run() {
 	}
 }
 
-func registerGracefulShutdown(db *gorm.DB, redisClient *redis.Client) {
+func registerGracefulShutdown(db *gorm.DB, redisClient *redis.Client, publisher domain.EventPublisher) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -62,6 +62,7 @@ func registerGracefulShutdown(db *gorm.DB, redisClient *redis.Client) {
 		if sqlDB, err := db.DB(); err == nil {
 			_ = sqlDB.Close()
 		}
+		closeKafkaPublisher(publisher)
 		_ = redisClient.Close()
 		os.Exit(0)
 	}()

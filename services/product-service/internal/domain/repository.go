@@ -13,7 +13,7 @@ type ProductFilter struct {
 }
 
 type ProductListResponse struct {
-	Product []Product
+	Products []Product
 	Total   int64
 	Page    int
 	Limit   int
@@ -21,7 +21,7 @@ type ProductListResponse struct {
 
 type ProductRepository interface {
 	// product operations
-	GetProducts(filter ProductFilter) (ProductListResponse, error)
+	GetProducts(filter ProductFilter) (*ProductListResponse, error)
 	GetProductByID(id uuid.UUID) (*Product, error)
 	CreateProduct(product *Product) (*Product, error)
 	UpdateProduct(product *Product) (*Product, error)

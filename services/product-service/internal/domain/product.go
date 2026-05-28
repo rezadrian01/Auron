@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"google.golang.org/genproto/googleapis/type/decimal"
 )
 
 // ============================================================
@@ -48,7 +47,7 @@ type Product struct {
 	CategoryID   uuid.UUID       `json:"category_id" gorm:"type:uuid;not null;index"`
 	Name         string          `json:"name" gorm:"type:varchar(500);not null"`
 	Description  string          `json:"description" gorm:"type:text"`
-	Price        decimal.Decimal `json:"price" gorm:"type:decimal(12,2);not null;index"`
+	Price        float64         `json:"price" gorm:"type:decimal(12,2);not null;index"`
 	ImageURL     string          `json:"image_url" gorm:"type:text"`
 	SearchVector string          `json:"-" gorm:"type:tsvector;index:idx_products_search,type:GIN"`
 	IsActive     bool            `json:"is_active" gorm:"not null;default:true;index"`
@@ -59,24 +58,6 @@ type Product struct {
 
 func (Product) TableName() string {
 	return "products"
-}
-
-// BeforeSave is a GORM hook that populates the search_vector before insert/update.
-// This enables PostgreSQL full-text search via tsvector.
-func (p *Product) BeforeSave() error {
-	// Build tsvector from name and description for full-text search
-	// Format: 'word':position,'word2':position2 (PostgreSQL tsvector format)
-	// We use a simplified approach — PostgreSQL will parse this properly via triggers
-	p.SearchVector = p.buildSearchVector()
-	return nil
-}
-
-// buildSearchVector creates a searchable text vector from product fields.
-// This is a Go-side fallback; PostgreSQL triggers should handle the actual tsvector generation.
-func (p *Product) buildSearchVector() string {
-	// Return plain text — PostgreSQL's to_tsvector() will convert this properly
-	// when using triggers. This is only for GORM AutoMigrate compatibility.
-	return p.Name + " " + p.Description
 }
 
 type Inventory struct {
@@ -110,7 +91,7 @@ type ProductRequest struct {
 	CategoryID  uuid.UUID       `json:"category_id" binding:"required"`
 	Name        string          `json:"name" binding:"required,max=500"`
 	Description string          `json:"description" binding:"required"`
-	Price       decimal.Decimal `json:"price" binding:"required,gt=0"`
+	Price       float64         `json:"price" binding:"required,gt=0"`
 	ImageURL    string          `json:"image_url" binding:"omitempty,url"`
 	IsActive    *bool           `json:"is_active"`
 }
@@ -132,7 +113,7 @@ type ProductResponse struct {
 	CategoryID  uuid.UUID       `json:"category_id"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
-	Price       decimal.Decimal `json:"price"`
+	Price       float64         `json:"price"`
 	ImageURL    string          `json:"image_url,omitempty"`
 	IsActive    bool            `json:"is_active"`
 	CreatedAt   time.Time       `json:"created_at"`

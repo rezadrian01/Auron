@@ -10,7 +10,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	googledecimal "google.golang.org/genproto/googleapis/type/decimal"
 )
 
 type ProductHandler struct {
@@ -159,7 +158,6 @@ func (h *ProductHandler) CreateCategory(c *gin.Context) {
 // ── Input DTO ─────────────────────────────────────────────────────────────────
 
 // productBody is the HTTP request body for product create/update.
-// Uses float64 for price so clients send {"price": 99.99} instead of the protobuf-wrapped form.
 type productBody struct {
 	CategoryID  string  `json:"category_id" binding:"required"`
 	Name        string  `json:"name" binding:"required,max=500"`
@@ -179,7 +177,7 @@ func (b *productBody) toDomain() (domain.ProductRequest, error) {
 		CategoryID:  categoryID,
 		Name:        b.Name,
 		Description: b.Description,
-		Price:       googledecimal.Decimal{Value: strconv.FormatFloat(b.Price, 'f', -1, 64)},
+		Price:       b.Price,
 		ImageURL:    b.ImageURL,
 		IsActive:    b.IsActive,
 	}, nil

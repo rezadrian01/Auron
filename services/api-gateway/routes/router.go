@@ -142,16 +142,20 @@ func Setup(router *gin.Engine, cfg *config.Config) error {
 	payments.Use(middleware.RequestID())
 	{
 		payments.GET("/:id", requireAuth, toPaymentService)
+		payments.GET("/order/:order_id", requireAuth, toPaymentService)
 		payments.POST("/webhook/stripe", toPaymentService)
 	}
 
-	// Inventory routes — admin only
+	// Inventory routes — GET is public (product pages show stock); PUT is admin only
 	inventory := api.Group("/inventory")
 	inventory.Use(middleware.RequestID())
-	inventory.Use(requireAuth, requireRole)
 	{
 		inventory.GET("/:product_id", toInventoryService)
-		inventory.PUT("/:product_id", toInventoryService)
+	}
+	adminInventory := inventory.Group("")
+	adminInventory.Use(requireAuth, requireRole)
+	{
+		adminInventory.PUT("/:product_id", toInventoryService)
 	}
 
 	// Generic escape hatch: /api/services/:service/*path -> SERVICE_URL_<SERVICE>

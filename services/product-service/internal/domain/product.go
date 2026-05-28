@@ -49,7 +49,7 @@ type Product struct {
 	Description  string          `json:"description" gorm:"type:text"`
 	Price        float64         `json:"price" gorm:"type:decimal(12,2);not null;index"`
 	ImageURL     string          `json:"image_url" gorm:"type:text"`
-	SearchVector string          `json:"-" gorm:"type:tsvector"`
+	SearchVector string          `json:"-" gorm:"-"`
 	IsActive     bool            `json:"is_active" gorm:"not null;default:true;index"`
 	CreatedAt    time.Time       `json:"created_at" gorm:"not null;default:now()"`
 	UpdatedAt    time.Time       `json:"updated_at" gorm:"not null;default:now()"`

@@ -34,7 +34,7 @@ type Order struct {
 	ID              uuid.UUID   `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	UserID          uuid.UUID   `json:"user_id" gorm:"type:uuid;not null;index"`
 	Status          OrderStatus `json:"status" gorm:"type:varchar(50);not null;default:'pending';index"`
-	TotalAmount     float64     `json:"total_amount" gorm:"type:decimal(12,2);not null"`
+	TotalAmount     float64     `json:"total_amount" gorm:"type:numeric(12,2);not null"`
 	ShippingName    string      `json:"shipping_name" gorm:"type:varchar(255);not null"`
 	ShippingAddress string      `json:"shipping_address" gorm:"type:text;not null"`
 	Items           []OrderItem `json:"items,omitempty" gorm:"foreignKey:OrderID;constraint:OnDelete:CASCADE"`
@@ -51,9 +51,9 @@ type OrderItem struct {
 	OrderID     uuid.UUID `json:"order_id" gorm:"type:uuid;not null;index"`
 	ProductID   uuid.UUID `json:"product_id" gorm:"type:uuid;not null"`
 	ProductName string    `json:"product_name" gorm:"type:varchar(500);not null"`
-	Price       float64   `json:"price" gorm:"type:decimal(12,2);not null"`
+	Price       float64   `json:"price" gorm:"type:numeric(12,2);not null"`
 	Quantity    int       `json:"quantity" gorm:"not null"`
-	Subtotal    float64   `json:"subtotal" gorm:"type:decimal(12,2);not null"`
+	Subtotal    float64   `json:"subtotal" gorm:"type:numeric(12,2);not null"`
 	CreatedAt   time.Time `json:"created_at" gorm:"not null;default:now()"`
 }
 

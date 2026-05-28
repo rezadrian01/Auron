@@ -20,7 +20,7 @@ type Payment struct {
 	ID                    uuid.UUID     `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	OrderID               uuid.UUID     `json:"order_id" gorm:"type:uuid;not null;uniqueIndex"`
 	UserID                uuid.UUID     `json:"user_id" gorm:"type:uuid;not null;index"`
-	Amount                float64       `json:"amount" gorm:"type:decimal(12,2);not null"`
+	Amount                float64       `json:"amount" gorm:"type:numeric(12,2);not null"`
 	Currency              string        `json:"currency" gorm:"type:varchar(10);not null;default:'usd'"`
 	Status                PaymentStatus `json:"status" gorm:"type:varchar(50);not null;default:'pending';index"`
 	StripePaymentIntentID string        `json:"stripe_payment_intent_id,omitempty" gorm:"type:varchar(255)"`

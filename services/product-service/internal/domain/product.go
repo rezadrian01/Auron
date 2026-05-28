@@ -47,7 +47,7 @@ type Product struct {
 	CategoryID   uuid.UUID       `json:"category_id" gorm:"type:uuid;not null;index"`
 	Name         string          `json:"name" gorm:"type:varchar(500);not null"`
 	Description  string          `json:"description" gorm:"type:text"`
-	Price        float64         `json:"price" gorm:"type:decimal(12,2);not null;index"`
+	Price        float64         `json:"price" gorm:"type:numeric(12,2);not null;index"`
 	ImageURL     string          `json:"image_url" gorm:"type:text"`
 	SearchVector string          `json:"-" gorm:"-"`
 	IsActive     bool            `json:"is_active" gorm:"not null;default:true;index"`

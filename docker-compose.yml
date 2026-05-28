@@ -31,6 +31,7 @@ services:
       - ./services/api-gateway/.env
     environment:
       - PORT=8080
+      - JWT_SECRET=${JWT_SECRET}
       - USER_SERVICE_URL=http://user-service:8081
       - PRODUCT_SERVICE_URL=http://product-service:8082
       - ORDER_SERVICE_URL=http://order-service:8083
@@ -88,6 +89,8 @@ services:
     environment:
       - PORT=8082
       - DATABASE_URL=postgres://auron:auron_pass@products-db:5433/products_db?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BROKERS=kafka:29092
     depends_on:
       products-db:
         condition: service_healthy

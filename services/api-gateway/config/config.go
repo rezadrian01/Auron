@@ -21,7 +21,7 @@ type Config struct {
 	Port              string
 	ServiceURLs       map[string]string
 	RedisURL          string
-	JWTPublicKeyPath  string
+	JWTSecret         string
 	RateLimitRequests int
 	RateLimitWindow   time.Duration
 }
@@ -65,7 +65,7 @@ func Load() *Config {
 		Port:              getEnv("PORT", "8080"),
 		ServiceURLs:       serviceURLs,
 		RedisURL:          getEnv("REDIS_URL", "redis://localhost:6379/0"),
-		JWTPublicKeyPath:  getEnv("JWT_PUBLIC_KEY", "/run/secrets/jwt-public-key"),
+		JWTSecret:         getEnv("JWT_SECRET", ""),
 		RateLimitRequests: getEnvInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitWindow:   getEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
 	}

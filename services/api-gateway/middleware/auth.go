@@ -1,11 +1,7 @@
 package middleware
 
 import (
-	"crypto/rsa"
-	"encoding/pem"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -14,115 +10,59 @@ import (
 )
 
 const (
-	// AuthorizationHeader is the header name for authorization
 	AuthorizationHeader = "Authorization"
-	// UserIDKey is the context key for user ID
-	UserIDKey = "user_id"
-	// UserEmailKey is the context key for user email
-	UserEmailKey = "user_email"
-	// UserRoleKey is the context key for user role
-	UserRoleKey = "user_role"
+	UserIDKey           = "user_id"
+	UserEmailKey        = "user_email"
+	UserRoleKey         = "user_role"
 )
 
-// Claims represents JWT claims
+// Claims represents JWT claims produced by user-service (HS256).
+// The user UUID lives in the standard "sub" field (RegisteredClaims.Subject).
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID  string `json:"user_id"`
-	Email   string `json:"email"`
-	Role    string `json:"role"`
+	Email string `json:"email"`
+	Role  string `json:"role"`
 }
 
-// JWTMiddleware handles JWT validation
+// JWTMiddleware validates HS256 tokens signed with a shared secret.
 type JWTMiddleware struct {
-	publicKey *rsa.PublicKey
+	secret []byte
 }
 
-// NewJWTMiddleware creates a new JWT middleware
-func NewJWTMiddleware(keyPath string) (*JWTMiddleware, error) {
-	keyData, err := ioutil.ReadFile(keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read JWT public key: %w", err)
+// NewJWTMiddleware creates a JWT middleware from the shared HMAC secret.
+func NewJWTMiddleware(secret string) (*JWTMiddleware, error) {
+	if secret == "" {
+		return nil, fmt.Errorf("JWT_SECRET must not be empty")
 	}
-
-	block, _ := pem.Decode(keyData)
-	if block == nil || block.Type != "PUBLIC KEY" {
-		return nil, errors.New("failed to parse PEM block containing public key")
-	}
-
-	pubKey, err := jwt.ParseRSAPublicKeyFromPEM(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse RSA public key: %w", err)
-	}
-
-	return &JWTMiddleware{
-		publicKey: pubKey,
-	}, nil
+	return &JWTMiddleware{secret: []byte(secret)}, nil
 }
 
-// Auth returns an authentication middleware
+// parseToken validates the token string and returns its claims.
+func (j *JWTMiddleware) parseToken(tokenString string) (*Claims, error) {
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return j.secret, nil
+	})
+	if err != nil || !token.Valid {
+		return nil, fmt.Errorf("invalid or expired token")
+	}
+	return claims, nil
+}
+
+// Auth returns a middleware that validates the JWT and populates context keys.
+// Proceeds even if validation fails — use RequireAuth to block unauthenticated requests.
 func (j *JWTMiddleware) Auth() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader(AuthorizationHeader)
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"error": gin.H{
-					"code":    "UNAUTHORIZED",
-					"message": "Authorization header is required",
-				},
-			})
-			return
-		}
-
-		// Extract token from "Bearer <token>"
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"error": gin.H{
-					"code":    "UNAUTHORIZED",
-					"message": "Invalid authorization header format",
-				},
-			})
-			return
-		}
-
-		tokenString := parts[1]
-
-		// Parse and validate token
-		claims := &Claims{}
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return j.publicKey, nil
-		})
-
-		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"error": gin.H{
-					"code":    "UNAUTHORIZED",
-					"message": "Invalid or expired token",
-				},
-			})
-			return
-		}
-
-		// Set claims in context
-		c.Set(UserIDKey, claims.UserID)
-		c.Set(UserEmailKey, claims.Email)
-		c.Set(UserRoleKey, claims.Role)
-
-		c.Next()
-	}
+	return j.RequireAuth()
 }
 
-// RequireAuth returns a middleware that requires authentication
+// RequireAuth returns a middleware that rejects requests without a valid JWT.
 func (j *JWTMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader(AuthorizationHeader)
-		if authHeader == "" {
+		tokenString := extractBearerToken(c.GetHeader(AuthorizationHeader))
+		if tokenString == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"error": gin.H{
@@ -133,29 +73,8 @@ func (j *JWTMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"error": gin.H{
-					"code":    "UNAUTHORIZED",
-					"message": "Invalid authorization header format",
-				},
-			})
-			return
-		}
-
-		tokenString := parts[1]
-
-		claims := &Claims{}
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return j.publicKey, nil
-		})
-
-		if err != nil || !token.Valid {
+		claims, err := j.parseToken(tokenString)
+		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"error": gin.H{
@@ -166,7 +85,8 @@ func (j *JWTMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		c.Set(UserIDKey, claims.UserID)
+		// Subject holds the user UUID ("sub" claim set by user-service)
+		c.Set(UserIDKey, claims.Subject)
 		c.Set(UserEmailKey, claims.Email)
 		c.Set(UserRoleKey, claims.Role)
 
@@ -205,6 +125,14 @@ func (j *JWTMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
 			},
 		})
 	}
+}
+
+func extractBearerToken(header string) string {
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
+		return ""
+	}
+	return strings.TrimSpace(parts[1])
 }
 
 // GetUserID returns the user ID from the context

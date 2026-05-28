@@ -88,7 +88,7 @@ services:
       - "8082:8082"
     environment:
       - PORT=8082
-      - DATABASE_URL=postgres://auron:auron_pass@products-db:5433/products_db?sslmode=disable
+      - DATABASE_URL=postgres://auron:auron_pass@products-db:5432/products_db?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       - KAFKA_BROKERS=kafka:29092
     depends_on:
@@ -112,7 +112,10 @@ services:
       - "8083:8083"
     environment:
       - PORT=8083
-      - DATABASE_URL=postgres://auron:auron_pass@orders-db:5434/orders_db?sslmode=disable
+      - DATABASE_URL=postgres://auron:auron_pass@orders-db:5432/orders_db?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BROKERS=kafka:29092
+      - PRODUCT_SERVICE_URL=http://product-service:8082
     depends_on:
       orders-db:
         condition: service_healthy
@@ -134,7 +137,7 @@ services:
       - "8084:8084"
     environment:
       - PORT=8084
-      - DATABASE_URL=postgres://auron:auron_pass@payments-db:5435/payments_db?sslmode=disable
+      - DATABASE_URL=postgres://auron:auron_pass@payments-db:5432/payments_db?sslmode=disable
     depends_on:
       payments-db:
         condition: service_healthy
@@ -156,7 +159,7 @@ services:
       - "8085:8085"
     environment:
       - PORT=8085
-      - DATABASE_URL=postgres://auron:auron_pass@products-db:5433/products_db?sslmode=disable
+      - DATABASE_URL=postgres://auron:auron_pass@products-db:5432/products_db?sslmode=disable
     depends_on:
       products-db:
         condition: service_healthy

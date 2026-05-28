@@ -46,45 +46,45 @@ A production-grade e-commerce platform built with a Go microservices backend and
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Go 1.25 · Gin · GORM |
-| Frontend | Next.js 16 · React 19 · Tailwind CSS 4 · TypeScript |
-| Databases | PostgreSQL 15 (one per service) |
-| Cache | Redis 7 |
-| Message broker | Apache Kafka (Confluent Platform 7.6) |
-| Payments | Stripe (stripe-go v76) |
-| Auth | JWT HS256 (shared secret across services) |
-| Containerisation | Docker · Docker Compose |
-| Observability | Prometheus · Grafana |
+| Layer            | Technology                                             |
+| ---------------- | ------------------------------------------------------ |
+| Backend          | Go 1.25 · Gin · GORM                                 |
+| Frontend         | Next.js 16 · React 19 · Tailwind CSS 4 · TypeScript |
+| Databases        | PostgreSQL 15 (one per service)                        |
+| Cache            | Redis 7                                                |
+| Message broker   | Apache Kafka (Confluent Platform 7.6)                  |
+| Payments         | Stripe (stripe-go v76)                                 |
+| Auth             | JWT HS256 (shared secret across services)              |
+| Containerisation | Docker · Docker Compose                               |
+| Observability    | Prometheus · Grafana                                  |
 
 ---
 
 ## Services
 
-| Service | Port | Responsibility |
-|---------|------|----------------|
-| **api-gateway** | 8080 | JWT validation, rate limiting, reverse proxy to all downstream services |
-| **user-service** | 8081 | Registration, login, JWT issuance, profile, addresses |
-| **product-service** | 8082 | Product catalogue, categories, PostgreSQL full-text search, Redis cache |
-| **order-service** | 8083 | Cart management, order creation, inventory reservation |
-| **payment-service** | 8084 | Stripe PaymentIntent lifecycle, webhook handling, payment status |
-| **inventory-service** | 8085 | Stock levels, reservation/release on order events |
-| **notification-service** | 8086 | Email delivery via SMTP (stateless Kafka consumer, no database) |
+| Service                        | Port | Responsibility                                                          |
+| ------------------------------ | ---- | ----------------------------------------------------------------------- |
+| **api-gateway**          | 8080 | JWT validation, rate limiting, reverse proxy to all downstream services |
+| **user-service**         | 8081 | Registration, login, JWT issuance, profile, addresses                   |
+| **product-service**      | 8082 | Product catalogue, categories, PostgreSQL full-text search, Redis cache |
+| **order-service**        | 8083 | Cart management, order creation, inventory reservation                  |
+| **payment-service**      | 8084 | Stripe PaymentIntent lifecycle, webhook handling, payment status        |
+| **inventory-service**    | 8085 | Stock levels, reservation/release on order events                       |
+| **notification-service** | 8086 | Email delivery via SMTP (stateless Kafka consumer, no database)         |
 
 ### Supporting infrastructure
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| users-db | 5432 | PostgreSQL for user-service |
-| products-db | 5433 | PostgreSQL for product-service and inventory-service |
-| orders-db | 5434 | PostgreSQL for order-service |
-| payments-db | 5435 | PostgreSQL for payment-service |
-| Redis | 6380 | Shared cache (token deny-list, product/payment caching) |
-| Kafka | 9092 | External listener (services use internal port 29092) |
-| Kafka UI | 8090 | Web UI for browsing topics and messages |
-| Prometheus | 9090 | Metrics scraping |
-| Grafana | 3001 | Dashboards (admin / admin) |
+| Service     | Port | Purpose                                                 |
+| ----------- | ---- | ------------------------------------------------------- |
+| users-db    | 5432 | PostgreSQL for user-service                             |
+| products-db | 5433 | PostgreSQL for product-service and inventory-service    |
+| orders-db   | 5434 | PostgreSQL for order-service                            |
+| payments-db | 5435 | PostgreSQL for payment-service                          |
+| Redis       | 6380 | Shared cache (token deny-list, product/payment caching) |
+| Kafka       | 9092 | External listener (services use internal port 29092)    |
+| Kafka UI    | 8090 | Web UI for browsing topics and messages                 |
+| Prometheus  | 9090 | Metrics scraping                                        |
+| Grafana     | 3001 | Dashboards (admin / admin)                              |
 
 ---
 
@@ -219,41 +219,42 @@ The checkout flow works as follows:
 
 ## API Reference
 
-Full endpoint documentation is in [API_DOCS.md](./API_DOCS.md).
+Full endpoint documentation is in [API_DOCS.md](./docs/API_DOCS.md).
 
-A ready-to-import Postman collection is at [Auron.postman_collection.json](./Auron.postman_collection.json). It includes:
+A ready-to-import Postman collection is at [Auron.postman_collection.json](./docs/Auron.postman_collection.json). It includes:
+
 - Collection-level Bearer auth using `{{access_token}}`
 - Test scripts that auto-save tokens, IDs, and UUIDs after each request
 - All 30 endpoints organised into folders
 
 ### Quick reference
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/auth/register` | — | Register |
-| POST | `/api/auth/login` | — | Login |
-| POST | `/api/auth/refresh` | — | Refresh token |
-| POST | `/api/auth/logout` | ✓ | Logout |
-| GET | `/api/users/me` | ✓ | Get profile |
-| PUT | `/api/users/me` | ✓ | Update profile |
-| GET/POST | `/api/users/me/addresses` | ✓ | Addresses |
-| GET | `/api/products` | — | List products (search, filter, sort) |
-| GET | `/api/products/:id` | — | Get product |
-| POST/PUT/DELETE | `/api/products` | admin | Manage products |
-| GET | `/api/categories` | — | List categories |
-| POST | `/api/categories` | admin | Create category |
-| GET | `/api/cart` | ✓ | Get cart |
-| POST | `/api/cart/items` | ✓ | Add item |
-| PUT/DELETE | `/api/cart/items/:id` | ✓ | Update/remove item |
-| GET/POST | `/api/orders` | ✓ | List / create order |
-| GET | `/api/orders/:id` | ✓ | Get order |
-| PUT | `/api/orders/:id/cancel` | ✓ | Cancel order |
-| GET | `/api/payments/:id` | ✓ | Get payment |
-| GET | `/api/payments/order/:id` | ✓ | Get payment by order (includes `client_secret`) |
-| POST | `/api/payments/webhook/stripe` | — | Stripe webhook |
-| GET | `/api/inventory/:product_id` | — | Get stock |
-| PUT | `/api/inventory/:product_id` | admin | Set stock |
-| GET | `/api/health` | — | Gateway health |
+| Method          | Path                             | Auth  | Description                                       |
+| --------------- | -------------------------------- | ----- | ------------------------------------------------- |
+| POST            | `/api/auth/register`           | —    | Register                                          |
+| POST            | `/api/auth/login`              | —    | Login                                             |
+| POST            | `/api/auth/refresh`            | —    | Refresh token                                     |
+| POST            | `/api/auth/logout`             | ✓    | Logout                                            |
+| GET             | `/api/users/me`                | ✓    | Get profile                                       |
+| PUT             | `/api/users/me`                | ✓    | Update profile                                    |
+| GET/POST        | `/api/users/me/addresses`      | ✓    | Addresses                                         |
+| GET             | `/api/products`                | —    | List products (search, filter, sort)              |
+| GET             | `/api/products/:id`            | —    | Get product                                       |
+| POST/PUT/DELETE | `/api/products`                | admin | Manage products                                   |
+| GET             | `/api/categories`              | —    | List categories                                   |
+| POST            | `/api/categories`              | admin | Create category                                   |
+| GET             | `/api/cart`                    | ✓    | Get cart                                          |
+| POST            | `/api/cart/items`              | ✓    | Add item                                          |
+| PUT/DELETE      | `/api/cart/items/:id`          | ✓    | Update/remove item                                |
+| GET/POST        | `/api/orders`                  | ✓    | List / create order                               |
+| GET             | `/api/orders/:id`              | ✓    | Get order                                         |
+| PUT             | `/api/orders/:id/cancel`       | ✓    | Cancel order                                      |
+| GET             | `/api/payments/:id`            | ✓    | Get payment                                       |
+| GET             | `/api/payments/order/:id`      | ✓    | Get payment by order (includes `client_secret`) |
+| POST            | `/api/payments/webhook/stripe` | —    | Stripe webhook                                    |
+| GET             | `/api/inventory/:product_id`   | —    | Get stock                                         |
+| PUT             | `/api/inventory/:product_id`   | admin | Set stock                                         |
+| GET             | `/api/health`                  | —    | Gateway health                                    |
 
 ---
 
@@ -264,8 +265,11 @@ auron/
 ├── docker-compose.yml          # Full stack definition
 ├── Makefile                    # Developer commands
 ├── .env.example                # Environment variable template
-├── API_DOCS.md                 # Full API reference
-├── Auron.postman_collection.json
+│
+├── docs/
+│   ├── API_DOCS.md             # Full API reference
+│   ├── API_CURL_TESTS.md       # curl test guide with real responses
+│   └── Auron.postman_collection.json
 │
 ├── services/
 │   ├── api-gateway/            # Gin · JWT middleware · httputil.ReverseProxy
@@ -275,8 +279,6 @@ auron/
 │   ├── payment-service/        # Gin · GORM · Redis · stripe-go · Kafka
 │   ├── inventory-service/      # Gin · GORM · Redis · Kafka consumer+producer
 │   └── notification-service/   # Gin (health only) · net/smtp · Kafka consumer
-│
-├── shared/                     # Shared Go modules (Kafka helpers, Redis client)
 │
 ├── frontend/                   # Next.js 16 · React 19 · Tailwind CSS 4
 │   ├── app/                    # App Router pages and layouts
@@ -309,17 +311,17 @@ Each Go service follows the same internal layout:
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `JWT_SECRET` | yes | HS256 signing secret, shared across all services |
-| `STRIPE_SECRET_KEY` | yes | Stripe secret key (`sk_test_...` or `sk_live_...`) |
-| `STRIPE_WEBHOOK_SECRET` | yes | Stripe webhook signing secret (`whsec_...`) |
-| `SMTP_HOST` | no | SMTP server hostname (defaults to no-op logging) |
-| `SMTP_PORT` | no | SMTP port (default `587`) |
-| `SMTP_FROM` | no | From address for notification emails |
-| `SMTP_USER` | no | SMTP username (omit for unauthenticated relay, e.g. MailHog) |
-| `SMTP_PASS` | no | SMTP password |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | no | Stripe publishable key for frontend Stripe.js |
+| Variable                               | Required | Description                                                  |
+| -------------------------------------- | -------- | ------------------------------------------------------------ |
+| `JWT_SECRET`                         | yes      | HS256 signing secret, shared across all services             |
+| `STRIPE_SECRET_KEY`                  | yes      | Stripe secret key (`sk_test_...` or `sk_live_...`)       |
+| `STRIPE_WEBHOOK_SECRET`              | yes      | Stripe webhook signing secret (`whsec_...`)                |
+| `SMTP_HOST`                          | no       | SMTP server hostname (defaults to no-op logging)             |
+| `SMTP_PORT`                          | no       | SMTP port (default `587`)                                  |
+| `SMTP_FROM`                          | no       | From address for notification emails                         |
+| `SMTP_USER`                          | no       | SMTP username (omit for unauthenticated relay, e.g. MailHog) |
+| `SMTP_PASS`                          | no       | SMTP password                                                |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | no       | Stripe publishable key for frontend Stripe.js                |
 
 Database URLs and internal service URLs are pre-configured in `docker-compose.yml` and do not need to be set in `.env`.
 
@@ -327,5 +329,5 @@ Database URLs and internal service URLs are pre-configured in `docker-compose.ym
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).  
+MIT — see [LICENSE](./LICENSE).
 Copyright © 2026 Ahmad Reza Adrian.

@@ -86,7 +86,7 @@ func (c *ProductCache) SetProductList(ctx context.Context, cacheKey string, resp
 
 func (c *ProductCache) InvalidateProductList(ctx context.Context) error {
 	var cursor uint64
-	pattern := ProductListPrefix + "*"
+	pattern := ProductListPrefix + ":*"
 
 	for {
 		keys, nextCursor, err := c.redis.Scan(ctx, cursor, pattern, 100).Result()
@@ -113,8 +113,20 @@ func (c *ProductCache) ClearAll(ctx context.Context) error {
 }
 
 func GenerateCacheKey(filter domain.ProductFilter) string {
-	// create a has from filter params for list caching
-	hash := fmt.Sprintf("%s_%s_%s_%s_%d_%d", filter.Q, filter.CategoryID.String(), fmt.Sprintf("%.2f", *filter.MinPrice), fmt.Sprintf("%.2f", *filter.MaxPrice), filter.Page, filter.Limit)
-
-	return ProductListPrefix + hash
+	categoryID := ""
+	if filter.CategoryID != nil {
+		categoryID = filter.CategoryID.String()
+	}
+	minPrice := "0.00"
+	if filter.MinPrice != nil {
+		minPrice = fmt.Sprintf("%.2f", *filter.MinPrice)
+	}
+	maxPrice := "0.00"
+	if filter.MaxPrice != nil {
+		maxPrice = fmt.Sprintf("%.2f", *filter.MaxPrice)
+	}
+	return fmt.Sprintf("%s:%s_%s_%s_%s_%d_%d",
+		ProductListPrefix, filter.Q, categoryID, minPrice, maxPrice,
+		filter.Page, filter.Limit,
+	)
 }

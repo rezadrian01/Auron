@@ -63,8 +63,9 @@ func (p *Payment) ToResponse() *PaymentResponse {
 }
 
 // OrderCreatedEvent is the shape of the Kafka message consumed from order-service.
+// JSON tags must match the Order struct in order-service (ID is published as "id").
 type OrderCreatedEvent struct {
-	OrderID     uuid.UUID        `json:"order_id"`
+	OrderID     uuid.UUID        `json:"id"`
 	UserID      uuid.UUID        `json:"user_id"`
 	TotalAmount float64          `json:"total_amount"`
 	Items       []OrderEventItem `json:"items"`

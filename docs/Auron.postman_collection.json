@@ -1,0 +1,809 @@
+{
+  "info": {
+    "name": "Auron API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Auron e-commerce microservices API. Import this file into Postman, then set the `base_url` collection variable to your gateway address (default: http://localhost:8080).\n\nThe Login request automatically saves `access_token` and `refresh_token` to collection variables via a test script."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "category_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cart_item_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "payment_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "address_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"securepass123\",\n  \"confirm_password\": \"securepass123\",\n  \"name\": \"Jane Doe\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Register a new customer account. All registrations default to `customer` role regardless of the `role` field."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('user_id', body.data.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"securepass123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Login and receive JWT tokens. The test script automatically saves `access_token` and `refresh_token` to collection variables."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.access_token) {",
+                  "    pm.collectionVariables.set('access_token', body.access_token);",
+                  "  }",
+                  "  if (body.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Exchange a refresh token for a new access token. The test script updates the collection variables."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.access_token) {",
+                  "    pm.collectionVariables.set('access_token', body.access_token);",
+                  "  }",
+                  "  if (body.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Revoke the refresh token. Clears auth cookies."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('access_token', '');",
+                  "  pm.collectionVariables.set('refresh_token', '');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me"]
+            },
+            "description": "Get the authenticated user's profile."
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Smith\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update profile. All fields are optional."
+          }
+        },
+        {
+          "name": "Add Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/me/addresses",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me", "addresses"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Home\",\n  \"street\": \"123 Main St\",\n  \"city\": \"Jakarta\",\n  \"state\": \"DKI Jakarta\",\n  \"country\": \"Indonesia\",\n  \"postal_code\": \"12345\",\n  \"is_default\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Add a shipping address for the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('address_id', body.data.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Addresses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/me/addresses",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me", "addresses"]
+            },
+            "description": "List all shipping addresses for the authenticated user."
+          }
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/me/addresses/{{address_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me", "addresses", "{{address_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Office\",\n  \"is_default\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update an address. All fields are optional."
+          }
+        },
+        {
+          "name": "Delete Address",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/users/me/addresses/{{address_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me", "addresses", "{{address_id}}"]
+            },
+            "description": "Delete an address by ID."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/products?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products"],
+              "query": [
+                { "key": "q", "value": "", "description": "Full-text search", "disabled": true },
+                { "key": "category_id", "value": "{{category_id}}", "description": "Filter by category UUID", "disabled": true },
+                { "key": "min_price", "value": "10", "description": "Minimum price", "disabled": true },
+                { "key": "max_price", "value": "500", "description": "Maximum price", "disabled": true },
+                { "key": "sort", "value": "newest", "description": "price_asc | price_desc | newest | name_asc | name_desc", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "List products. Public endpoint. Supports full-text search, category/price filters, sorting, and pagination."
+          }
+        },
+        {
+          "name": "Get Product",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products", "{{product_id}}"]
+            },
+            "description": "Get a single product by UUID. Public endpoint."
+          }
+        },
+        {
+          "name": "Create Product (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/products",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{category_id}}\",\n  \"name\": \"Wireless Headphones\",\n  \"description\": \"Premium noise-cancelling wireless headphones.\",\n  \"price\": 149.99,\n  \"image_url\": \"https://example.com/headphones.jpg\",\n  \"is_active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Create a product. Requires admin role."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('product_id', body.data.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Product (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products", "{{product_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{category_id}}\",\n  \"name\": \"Wireless Headphones Pro\",\n  \"description\": \"Updated description.\",\n  \"price\": 179.99,\n  \"is_active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update a product. Requires admin role."
+          }
+        },
+        {
+          "name": "Delete Product (Admin)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products", "{{product_id}}"]
+            },
+            "description": "Delete a product. Requires admin role."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/categories",
+              "host": ["{{base_url}}"],
+              "path": ["api", "categories"]
+            },
+            "description": "List all product categories. Public endpoint."
+          }
+        },
+        {
+          "name": "Create Category (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/categories",
+              "host": ["{{base_url}}"],
+              "path": ["api", "categories"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Electronics\",\n  \"slug\": \"electronics\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Create a category. Requires admin role. `slug` must be unique."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('category_id', body.data.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cart"]
+            },
+            "description": "Get the authenticated user's cart. Cart is created automatically on first access."
+          }
+        },
+        {
+          "name": "Add Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cart", "items"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{product_id}}\",\n  \"quantity\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Add a product to the cart. Increments quantity if product already exists in cart."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.items && body.data.items.length > 0) {",
+                  "    pm.collectionVariables.set('cart_item_id', body.data.items[0].id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items/{{cart_item_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cart", "items", "{{cart_item_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update the quantity of a cart item. `:id` is the cart item UUID."
+          }
+        },
+        {
+          "name": "Remove Item",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/cart/items/{{cart_item_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cart", "items", "{{cart_item_id}}"]
+            },
+            "description": "Remove a specific item from the cart."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/orders?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "List orders for the authenticated user, newest first."
+          }
+        },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shipping_name\": \"Jane Doe\",\n  \"shipping_address\": \"123 Main St, Jakarta 12345\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Convert the current cart into an order. Reserves inventory, clears cart, and triggers payment creation via Kafka. Use GET /payments/order/:order_id to retrieve the Stripe client_secret."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('order_id', body.data.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/orders/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "{{order_id}}"]
+            },
+            "description": "Get a single order by UUID. Returns 403 if the order does not belong to the authenticated user."
+          }
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{base_url}}/api/orders/{{order_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "{{order_id}}", "cancel"]
+            },
+            "description": "Cancel an order. Only orders with status `pending`, `confirmed`, or `processing` can be cancelled. Releases reserved inventory."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Get Payment",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/payments/{{payment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "{{payment_id}}"]
+            },
+            "description": "Get a payment by payment UUID. Returns 403 if it does not belong to the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('payment_id', body.data.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment by Order",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/payments/order/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "order", "{{order_id}}"]
+            },
+            "description": "Get the payment for an order. Includes `client_secret` for Stripe.js payment confirmation on the frontend. Call this after POST /orders to get the client_secret."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('payment_id', body.data.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stripe Webhook (internal)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Stripe-Signature", "value": "t=...,v1=...", "description": "Generated by Stripe CLI or Stripe dashboard" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/payments/webhook/stripe",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "webhook", "stripe"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Internal Stripe webhook endpoint. Do not call manually — this is for Stripe event delivery only. The Stripe-Signature header is required and validated using STRIPE_WEBHOOK_SECRET."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "Get Inventory",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/inventory/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "inventory", "{{product_id}}"]
+            },
+            "description": "Get stock levels for a product. Public endpoint. Returns total, reserved, and available quantities."
+          }
+        },
+        {
+          "name": "Set Inventory (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/inventory/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "inventory", "{{product_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"total_quantity\": 100\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Set total stock for a product. Requires admin role. Reserved quantity is managed automatically by the order system."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Gateway Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check if the API gateway is up."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -63,6 +63,19 @@ func (s *PaymentService) GetPaymentByID(ctx context.Context, userID, paymentID u
 	return payment.ToResponse(), nil
 }
 
+func (s *PaymentService) GetPaymentByOrderID(ctx context.Context, userID, orderID uuid.UUID) (*domain.PaymentCheckoutResponse, error) {
+	payment, err := s.paymentRepo.GetPaymentByOrderID(orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	if payment.UserID != userID {
+		return nil, domain.ErrForbidden
+	}
+
+	return payment.ToCheckoutResponse(), nil
+}
+
 func (s *PaymentService) HandleOrderCreated(ctx context.Context, event domain.OrderCreatedEvent) error {
 	// Idempotency: skip if payment already exists for this order.
 	existing, err := s.paymentRepo.GetPaymentByOrderID(event.OrderID)
@@ -140,7 +153,9 @@ func (s *PaymentService) HandleStripeWebhook(ctx context.Context, payload []byte
 			return fmt.Errorf("webhook: unmarshal event: %w", err)
 		}
 	} else {
-		event, err = webhook.ConstructEvent(payload, signature, s.webhookSecret)
+		event, err = webhook.ConstructEventWithOptions(payload, signature, s.webhookSecret, webhook.ConstructEventOptions{
+			IgnoreAPIVersionMismatch: true,
+		})
 		if err != nil {
 			return domain.ErrInvalidWebhookSignature
 		}

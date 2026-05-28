@@ -27,7 +27,7 @@ type CartItem struct {
 	CartID      uuid.UUID `json:"cart_id" gorm:"type:uuid;not null;index"`
 	ProductID   uuid.UUID `json:"product_id" gorm:"type:uuid;not null"`
 	ProductName string    `json:"product_name" gorm:"type:varchar(500);not null"`
-	Price       float64   `json:"price" gorm:"type:decimal(12,2);not null"`
+	Price       float64   `json:"price" gorm:"type:numeric(12,2);not null"`
 	Quantity    int       `json:"quantity" gorm:"not null;default:1"`
 	CreatedAt   time.Time `json:"created_at" gorm:"not null;default:now()"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"not null;default:now()"`

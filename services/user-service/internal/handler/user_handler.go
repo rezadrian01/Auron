@@ -22,7 +22,7 @@ func NewUserHandler(service domain.UserService) *UserHandler {
 func (h *UserHandler) Register(c *gin.Context) {
 	var req domain.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
@@ -32,7 +32,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, domain.UserEnvelopeResponse{User: toUserResponse(user)})
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": toUserResponse(user)})
 }
 
 func (h *UserHandler) Login(c *gin.Context) {
@@ -46,7 +46,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		LoginWithTokens(req *domain.LoginRequest) (*domain.AuthResponse, error)
 	})
 	if !ok {
-		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{Error: "service does not support token response"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error":"service does not support token response"})
 		return
 	}
 
@@ -77,7 +77,7 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 	}
 
 	if req.RefreshToken == "" {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: "refresh token is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error":"refresh token is required"})
 		return
 	}
 
@@ -85,7 +85,7 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 		RefreshTokenWithTokens(req *domain.RefreshTokenRequest) (*domain.AuthResponse, error)
 	})
 	if !ok {
-		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{Error: "service does not support token response"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error":"service does not support token response"})
 		return
 	}
 
@@ -116,7 +116,7 @@ func (h *UserHandler) Logout(c *gin.Context) {
 	}
 
 	if req.RefreshToken == "" {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: "refresh token is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error":"refresh token is required"})
 		return
 	}
 
@@ -128,13 +128,13 @@ func (h *UserHandler) Logout(c *gin.Context) {
 	h.clearCookie(c, "access_token")
 	h.clearCookie(c, "refresh_token")
 
-	c.JSON(http.StatusOK, domain.MessageResponse{Message: "logged out"})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "logged out"})
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	userID, ok := middleware.UserIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: domain.ErrUnauthorized.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": domain.ErrUnauthorized.Error()})
 		return
 	}
 
@@ -144,19 +144,19 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, domain.UserEnvelopeResponse{User: toUserResponse(user)})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": toUserResponse(user)})
 }
 
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	userID, ok := middleware.UserIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: domain.ErrUnauthorized.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": domain.ErrUnauthorized.Error()})
 		return
 	}
 
 	var req domain.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
@@ -166,19 +166,19 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, domain.UserEnvelopeResponse{User: toUserResponse(user)})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": toUserResponse(user)})
 }
 
 func (h *UserHandler) AddAddress(c *gin.Context) {
 	userID, ok := middleware.UserIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: domain.ErrUnauthorized.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": domain.ErrUnauthorized.Error()})
 		return
 	}
 
 	var req domain.CreateAddressRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
@@ -198,13 +198,13 @@ func (h *UserHandler) AddAddress(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, domain.AddressEnvelopeResponse{Address: toAddressResponse(createdAddress)})
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": toAddressResponse(createdAddress)})
 }
 
 func (h *UserHandler) GetAddresses(c *gin.Context) {
 	userID, ok := middleware.UserIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: domain.ErrUnauthorized.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": domain.ErrUnauthorized.Error()})
 		return
 	}
 
@@ -220,25 +220,25 @@ func (h *UserHandler) GetAddresses(c *gin.Context) {
 		response = append(response, toAddressResponse(&addr))
 	}
 
-	c.JSON(http.StatusOK, domain.AddressesEnvelopeResponse{Addresses: response})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
 }
 
 func (h *UserHandler) UpdateAddress(c *gin.Context) {
 	userID, ok := middleware.UserIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: domain.ErrUnauthorized.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": domain.ErrUnauthorized.Error()})
 		return
 	}
 
 	addressID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: "invalid address id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error":"invalid address id"})
 		return
 	}
 
 	var req domain.UpdateAddressRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
@@ -248,25 +248,25 @@ func (h *UserHandler) UpdateAddress(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, domain.AddressEnvelopeResponse{Address: toAddressResponse(updatedAddress)})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": toAddressResponse(updatedAddress)})
 }
 
 func (h *UserHandler) DeleteAddress(c *gin.Context) {
 	userID, ok := middleware.UserIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: domain.ErrUnauthorized.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": domain.ErrUnauthorized.Error()})
 		return
 	}
 
 	addressIDRaw := c.Param("id")
 	if addressIDRaw == "" {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: "address id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error":"address id is required"})
 		return
 	}
 
 	addressID, err := uuid.Parse(addressIDRaw)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: "invalid address id"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error":"invalid address id"})
 		return
 	}
 
@@ -275,7 +275,7 @@ func (h *UserHandler) DeleteAddress(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, domain.DeleteAddressResponse{Message: "address deleted"})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "address deleted"})
 }
 
 func (h *UserHandler) applyCookie(c *gin.Context, cfg domain.CookieConfig) {
@@ -293,17 +293,17 @@ func (h *UserHandler) clearCookie(c *gin.Context, name string) {
 func (h *UserHandler) handleServiceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidCredentials), errors.Is(err, domain.ErrUnauthorized), errors.Is(err, domain.ErrInvalidToken), errors.Is(err, domain.ErrExpiredToken):
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": err.Error()})
 	case errors.Is(err, domain.ErrForbidden):
-		c.JSON(http.StatusForbidden, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
 	case errors.Is(err, domain.ErrUserNotFound), errors.Is(err, domain.ErrAddressNotFound):
-		c.JSON(http.StatusNotFound, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": err.Error()})
 	case errors.Is(err, domain.ErrEmailAlreadyExists):
-		c.JSON(http.StatusConflict, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
 	case errors.Is(err, domain.ErrPasswordMismatch):
-		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 	default:
-		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 	}
 }
 

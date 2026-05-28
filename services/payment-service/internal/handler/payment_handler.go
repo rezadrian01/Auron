@@ -42,6 +42,28 @@ func (h *PaymentHandler) GetPaymentByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": payment})
 }
 
+func (h *PaymentHandler) GetPaymentByOrderID(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": domain.ErrUnauthorized.Error()})
+		return
+	}
+
+	orderID, err := uuid.Parse(c.Param("order_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid order id"})
+		return
+	}
+
+	payment, err := h.service.GetPaymentByOrderID(c.Request.Context(), userID, orderID)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": payment})
+}
+
 func (h *PaymentHandler) HandleStripeWebhook(c *gin.Context) {
 	rawBody, exists := c.Get(middleware.RawBodyKey)
 	if !exists {

@@ -33,11 +33,16 @@ func setupDatabase(databaseURL string) (*gorm.DB, error) {
 }
 
 func runMigrations(db *gorm.DB) error {
-	if err := db.AutoMigrate(&domain.Category{}, &domain.Product{}, &domain.Inventory{}); err != nil {
-		return err
+	// Skip AutoMigrate if tables already exist — GORM generates malformed ALTER
+	// statements when column types use precision specifiers (e.g. numeric(12,2))
+	// that differ only in name from what PostgreSQL reports. applySearchIndex
+	// is always re-run because its statements are idempotent (IF NOT EXISTS / OR REPLACE).
+	if !db.Migrator().HasTable(&domain.Product{}) {
+		if err := db.AutoMigrate(&domain.Category{}, &domain.Product{}, &domain.Inventory{}); err != nil {
+			return err
+		}
 	}
 
-	// Apply tsvector trigger for full-text search (idempotent raw SQL)
 	return applySearchIndex(db)
 }
 

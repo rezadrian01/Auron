@@ -153,7 +153,9 @@ func (s *PaymentService) HandleStripeWebhook(ctx context.Context, payload []byte
 			return fmt.Errorf("webhook: unmarshal event: %w", err)
 		}
 	} else {
-		event, err = webhook.ConstructEvent(payload, signature, s.webhookSecret)
+		event, err = webhook.ConstructEventWithOptions(payload, signature, s.webhookSecret, webhook.ConstructEventOptions{
+			IgnoreAPIVersionMismatch: true,
+		})
 		if err != nil {
 			return domain.ErrInvalidWebhookSignature
 		}

@@ -24,7 +24,8 @@ func (c *stripeClient) CreatePaymentIntent(_ context.Context, amount float64, cu
 		Amount:   stripe.Int64(int64(amount * 100)),
 		Currency: stripe.String(currency),
 		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
-			Enabled: stripe.Bool(true),
+			Enabled:        stripe.Bool(true),
+			AllowRedirects: stripe.String("never"),
 		},
 		Metadata: metadata,
 	}

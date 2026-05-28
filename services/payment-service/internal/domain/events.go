@@ -8,6 +8,10 @@ type EventPublisher interface {
 }
 
 const (
+	// Consumed topics
+	TopicOrderCreated = "order.created"
+
+	// Published topics
 	TopicPaymentCreated   = "payment.created"
 	TopicPaymentCompleted = "payment.completed"
 	TopicPaymentFailed    = "payment.failed"

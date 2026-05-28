@@ -113,6 +113,9 @@ services:
     environment:
       - PORT=8083
       - DATABASE_URL=postgres://auron:auron_pass@orders-db:5434/orders_db?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BROKERS=kafka:29092
+      - PRODUCT_SERVICE_URL=http://product-service:8082
     depends_on:
       orders-db:
         condition: service_healthy

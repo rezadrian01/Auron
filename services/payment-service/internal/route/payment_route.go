@@ -10,5 +10,6 @@ import (
 func RegisterPaymentRoutes(router *gin.Engine, paymentHandler *handler.PaymentHandler) {
 	api := router.Group("/")
 	api.GET("/payments/:id", paymentHandler.GetPaymentByID)
+	api.GET("/payments/order/:order_id", paymentHandler.GetPaymentByOrderID)
 	api.POST("/payments/webhook/stripe", middleware.CaptureRawBody(), paymentHandler.HandleStripeWebhook)
 }

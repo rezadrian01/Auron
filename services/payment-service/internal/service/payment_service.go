@@ -63,6 +63,19 @@ func (s *PaymentService) GetPaymentByID(ctx context.Context, userID, paymentID u
 	return payment.ToResponse(), nil
 }
 
+func (s *PaymentService) GetPaymentByOrderID(ctx context.Context, userID, orderID uuid.UUID) (*domain.PaymentCheckoutResponse, error) {
+	payment, err := s.paymentRepo.GetPaymentByOrderID(orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	if payment.UserID != userID {
+		return nil, domain.ErrForbidden
+	}
+
+	return payment.ToCheckoutResponse(), nil
+}
+
 func (s *PaymentService) HandleOrderCreated(ctx context.Context, event domain.OrderCreatedEvent) error {
 	// Idempotency: skip if payment already exists for this order.
 	existing, err := s.paymentRepo.GetPaymentByOrderID(event.OrderID)

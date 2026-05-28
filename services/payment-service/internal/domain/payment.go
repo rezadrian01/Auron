@@ -62,6 +62,38 @@ func (p *Payment) ToResponse() *PaymentResponse {
 	}
 }
 
+// PaymentCheckoutResponse is returned to the frontend after order placement.
+// It includes client_secret so the frontend can confirm the payment via Stripe.js.
+type PaymentCheckoutResponse struct {
+	ID                    uuid.UUID     `json:"id"`
+	OrderID               uuid.UUID     `json:"order_id"`
+	UserID                uuid.UUID     `json:"user_id"`
+	Amount                float64       `json:"amount"`
+	Currency              string        `json:"currency"`
+	Status                PaymentStatus `json:"status"`
+	StripePaymentIntentID string        `json:"stripe_payment_intent_id,omitempty"`
+	ClientSecret          string        `json:"client_secret,omitempty"`
+	FailureReason         string        `json:"failure_reason,omitempty"`
+	CreatedAt             time.Time     `json:"created_at"`
+	UpdatedAt             time.Time     `json:"updated_at"`
+}
+
+func (p *Payment) ToCheckoutResponse() *PaymentCheckoutResponse {
+	return &PaymentCheckoutResponse{
+		ID:                    p.ID,
+		OrderID:               p.OrderID,
+		UserID:                p.UserID,
+		Amount:                p.Amount,
+		Currency:              p.Currency,
+		Status:                p.Status,
+		StripePaymentIntentID: p.StripePaymentIntentID,
+		ClientSecret:          p.StripeClientSecret,
+		FailureReason:         p.FailureReason,
+		CreatedAt:             p.CreatedAt,
+		UpdatedAt:             p.UpdatedAt,
+	}
+}
+
 // OrderCreatedEvent is the shape of the Kafka message consumed from order-service.
 // JSON tags must match the Order struct in order-service (ID is published as "id").
 type OrderCreatedEvent struct {

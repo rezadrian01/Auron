@@ -277,6 +277,8 @@ CATEGORY_ID=$(curl -s -X POST $BASE/categories \
 
 ### Create — admin only, save ID
 
+> `image_url` removed from request body — upload images separately after creation.
+
 ```bash
 PRODUCT_ID=$(curl -s -X POST $BASE/products \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
@@ -288,14 +290,103 @@ PRODUCT_ID=$(curl -s -X POST $BASE/products \
     \"price\": 15999000,
     \"is_active\": true
   }" | jq -r '.data.id')
+echo "Product ID: $PRODUCT_ID"
 ```
 
 **Response:**
 ```json
 {
-  "data": { "id": "<uuid>", "name": "iPhone 15 Pro", "price": 15999000, "is_active": true, ... },
-  "success": true
+  "success": true,
+  "data": { "id": "<uuid>", "name": "iPhone 15 Pro", "price": 15999000, "image_url": "", "images": [], "is_active": true, ... }
 }
+```
+
+---
+
+### Upload image — admin only, save first image ID
+
+```bash
+IMAGE_ID=$(curl -s -X POST "$BASE/products/$PRODUCT_ID/images" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -F "image=@/path/to/iphone.jpg" | jq -r '.data.id')
+echo "Image ID: $IMAGE_ID"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "<uuid>",
+    "product_id": "<uuid>",
+    "url": "https://storage.googleapis.com/auron-product-images/products/<uuid>.jpg",
+    "position": 0,
+    "created_at": "2026-01-01T00:00:00Z"
+  }
+}
+```
+
+---
+
+### Upload second image
+
+```bash
+IMAGE_ID_2=$(curl -s -X POST "$BASE/products/$PRODUCT_ID/images" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -F "image=@/path/to/iphone-back.jpg" | jq -r '.data.id')
+echo "Image 2 ID: $IMAGE_ID_2"
+```
+
+---
+
+### Get product — confirm images array and image_url
+
+```bash
+curl -s "$BASE/products/$PRODUCT_ID" | jq '.data | {image_url, images}'
+```
+
+**Response:**
+```json
+{
+  "image_url": "https://storage.googleapis.com/auron-product-images/products/<uuid>.jpg",
+  "images": [
+    { "id": "<uuid-1>", "url": "https://...", "position": 0, "created_at": "..." },
+    { "id": "<uuid-2>", "url": "https://...", "position": 1, "created_at": "..." }
+  ]
+}
+```
+
+---
+
+### Reorder images — make second image primary
+
+```bash
+curl -s -X PUT "$BASE/products/$PRODUCT_ID/images/reorder" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"image_ids\":[\"$IMAGE_ID_2\",\"$IMAGE_ID\"]}" | jq '.data[] | {id,position}'
+```
+
+**Response:**
+```json
+[
+  { "id": "<uuid-2>", "position": 0 },
+  { "id": "<uuid-1>", "position": 1 }
+]
+```
+
+---
+
+### Delete image — admin only
+
+```bash
+curl -s -X DELETE "$BASE/products/$PRODUCT_ID/images/$IMAGE_ID" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq
+```
+
+**Response:**
+```json
+{ "success": true, "message": "image deleted" }
 ```
 
 ---
@@ -304,7 +395,7 @@ PRODUCT_ID=$(curl -s -X POST $BASE/products \
 
 ```bash
 # All products
-curl -s "$BASE/products" | jq '.data[0] | {id,name,price}'
+curl -s "$BASE/products" | jq '.data[0] | {id, name, price, image_url, images_count: (.images | length)}'
 
 # Full-text search
 curl -s "$BASE/products?q=iphone" | jq '{total: .meta.total, first: .data[0].name}'
@@ -316,9 +407,9 @@ curl -s "$BASE/products?category_id=$CATEGORY_ID&sort=price_asc&page=1&limit=5" 
 **Response (list):**
 ```json
 {
-  "data": [{ "id": "<uuid>", "name": "iPhone 15 Pro", "price": 15999000, "is_active": true, ... }],
-  "meta": { "page": 1, "limit": 20, "total": 1 },
-  "success": true
+  "success": true,
+  "data": [{ "id": "<uuid>", "name": "iPhone 15 Pro", "price": 15999000, "image_url": "https://...", "images": [...], ... }],
+  "meta": { "page": 1, "limit": 20, "total": 1 }
 }
 ```
 
@@ -327,15 +418,12 @@ curl -s "$BASE/products?category_id=$CATEGORY_ID&sort=price_asc&page=1&limit=5" 
 ### Get by ID — public
 
 ```bash
-curl -s "$BASE/products/$PRODUCT_ID" | jq '.data | {id,name,price}'
+curl -s "$BASE/products/$PRODUCT_ID" | jq '.data | {id, name, price, image_url}'
 ```
 
 **Response:**
 ```json
-{
-  "data": { "id": "<uuid>", "name": "iPhone 15 Pro", "price": 15999000, ... },
-  "success": true
-}
+{ "id": "<uuid>", "name": "iPhone 15 Pro", "price": 15999000, "image_url": "https://..." }
 ```
 
 ---
@@ -356,7 +444,7 @@ curl -s -X PUT "$BASE/products/$PRODUCT_ID" \
 
 ---
 
-### Delete — admin only
+### Delete — admin only (also deletes all GCS images)
 
 ```bash
 curl -s -X DELETE "$BASE/products/$PRODUCT_ID" -H "Authorization: Bearer $ADMIN_TOKEN" | jq

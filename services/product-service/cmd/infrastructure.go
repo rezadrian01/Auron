@@ -37,27 +37,37 @@ func setupDatabase(databaseURL string) (*gorm.DB, error) {
 }
 
 func runMigrations(db *gorm.DB) error {
+	// Skip AutoMigrate if tables already exist — GORM generates malformed ALTER
+	// statements when column types use precision specifiers (e.g. numeric(12,2))
+	// that differ only in name from what PostgreSQL reports.
 	if !db.Migrator().HasTable(&domain.Product{}) {
 		if err := db.AutoMigrate(
 			&domain.Category{},
 			&domain.Product{},
 			&domain.Inventory{},
-			&domain.ProductImage{},
 		); err != nil {
-			return err
-		}
-	} else {
-		// Ensure product_images table is created even if products table already exists.
-		if err := db.AutoMigrate(&domain.ProductImage{}); err != nil {
 			return err
 		}
 	}
 
+	// product_images is managed via raw SQL so it is always created idempotently
+	// regardless of whether the products table already existed.
 	return applySearchIndex(db)
 }
 
 func applySearchIndex(db *gorm.DB) error {
 	statements := []string{
+		// product_images — idempotent, safe to run whether the table exists or not
+		`CREATE TABLE IF NOT EXISTS product_images (
+			id         UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+			product_id UUID      NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+			url        TEXT      NOT NULL,
+			position   INT       NOT NULL DEFAULT 0,
+			created_at TIMESTAMP NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id)`,
+
+		// full-text search vector
 		`ALTER TABLE products ADD COLUMN IF NOT EXISTS search_vector tsvector`,
 		`CREATE INDEX IF NOT EXISTS idx_products_search ON products USING GIN(search_vector)`,
 		`CREATE OR REPLACE FUNCTION products_search_vector_trigger() RETURNS trigger AS $$

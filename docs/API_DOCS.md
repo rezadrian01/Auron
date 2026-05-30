@@ -10,6 +10,7 @@ All endpoints are prefixed with `/api`.
 - [Authentication](#authentication)
 - [Users](#users)
 - [Products](#products)
+- [Product Images](#product-images)
 - [Categories](#categories)
 - [Cart](#cart)
 - [Orders](#orders)
@@ -344,6 +345,8 @@ All fields are optional — only provided fields are updated.
 
 GET endpoints are **public** (no auth required). POST, PUT, DELETE require **admin** role.
 
+> **Image note:** Products support multiple ordered images via a separate `product_images` table. The `image_url` field in all product responses is a computed convenience value equal to `images[0].url` (the primary image). Use the [Image endpoints](#product-images) to upload, delete, and reorder images.
+
 ---
 
 ### List Products
@@ -375,22 +378,18 @@ Supports full-text search, filtering by category and price range, sorting, and p
       "name": "Product Name",
       "description": "...",
       "price": 99.99,
-      "image_url": "https://...",
+      "image_url": "https://storage.googleapis.com/bucket/products/uuid.jpg",
+      "images": [
+        { "id": "uuid", "product_id": "uuid", "url": "https://...", "position": 0, "created_at": "..." },
+        { "id": "uuid", "product_id": "uuid", "url": "https://...", "position": 1, "created_at": "..." }
+      ],
       "is_active": true,
       "created_at": "2026-01-01T00:00:00Z",
       "updated_at": "2026-01-01T00:00:00Z",
-      "category": {
-        "id": "uuid",
-        "name": "Electronics",
-        "slug": "electronics"
-      }
+      "category": { "id": "uuid", "name": "Electronics", "slug": "electronics" }
     }
   ],
-  "meta": {
-    "page": 1,
-    "limit": 20,
-    "total": 42
-  }
+  "meta": { "page": 1, "limit": 20, "total": 42 }
 }
 ```
 
@@ -410,7 +409,10 @@ Supports full-text search, filtering by category and price range, sorting, and p
     "name": "Product Name",
     "description": "...",
     "price": 99.99,
-    "image_url": "https://...",
+    "image_url": "https://storage.googleapis.com/bucket/products/uuid.jpg",
+    "images": [
+      { "id": "uuid", "product_id": "uuid", "url": "https://...", "position": 0, "created_at": "..." }
+    ],
     "is_active": true,
     "created_at": "2026-01-01T00:00:00Z",
     "updated_at": "2026-01-01T00:00:00Z"
@@ -427,6 +429,8 @@ Supports full-text search, filtering by category and price range, sorting, and p
 `POST /api/products`  
 **Admin only.**
 
+Images are **not** included in this request. After creating a product, upload images separately via `POST /api/products/:id/images`.
+
 **Request body:**
 ```json
 {
@@ -434,7 +438,6 @@ Supports full-text search, filtering by category and price range, sorting, and p
   "name": "Product Name",
   "description": "Product description",
   "price": 99.99,
-  "image_url": "https://example.com/image.jpg",
   "is_active": true
 }
 ```
@@ -445,10 +448,9 @@ Supports full-text search, filtering by category and price range, sorting, and p
 | `name` | string | yes | max 500 chars |
 | `description` | string | yes | — |
 | `price` | float | yes | greater than 0 |
-| `image_url` | string | no | valid URL |
 | `is_active` | bool | no | defaults to `true` |
 
-**Response `201`:** same shape as Get Product
+**Response `201`:** same shape as Get Product (`images` will be `[]`)
 
 **Errors:** `400` validation · `401` unauthenticated · `403` not admin · `404` category not found · `409` product already exists
 
@@ -459,7 +461,7 @@ Supports full-text search, filtering by category and price range, sorting, and p
 `PUT /api/products/:id`  
 **Admin only.**
 
-**Request body:** same as Create Product
+**Request body:** same as Create Product (no `image_url` — manage images via the image endpoints)
 
 **Response `200`:** same shape as Get Product
 
@@ -472,15 +474,101 @@ Supports full-text search, filtering by category and price range, sorting, and p
 `DELETE /api/products/:id`  
 **Admin only.**
 
+Deletes the product and all its GCS image objects.
+
+**Response `200`:**
+```json
+{ "success": true, "message": "product deleted" }
+```
+
+**Errors:** `400` · `401` · `403` · `404`
+
+---
+
+## Product Images
+
+All image endpoints require **admin** role. Images are ordered by `position`; position `0` is the primary image shown on product cards (`image_url` in the product response).
+
+---
+
+### Upload Image
+
+`POST /api/products/:id/images`  
+**Admin only.**
+
+Upload a file and attach it to the product. The image is stored in Google Cloud Storage and appended after the existing images.
+
+**Request:** `multipart/form-data`
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `image` | file | yes | JPEG, PNG, or WebP · max 5 MB |
+
+**Response `201`:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "product_id": "uuid",
+    "url": "https://storage.googleapis.com/auron-product-images/products/uuid.jpg",
+    "position": 0,
+    "created_at": "2026-01-01T00:00:00Z"
+  }
+}
+```
+
+**Errors:** `400` missing field / wrong MIME / size exceeded · `401` · `403` · `404` product not found · `503` GCS not configured
+
+---
+
+### Delete Image
+
+`DELETE /api/products/:id/images/:image_id`  
+**Admin only.**
+
+Removes the image from GCS and the database. Remaining images are **not** automatically re-sequenced — call reorder if needed.
+
+**Response `200`:**
+```json
+{ "success": true, "message": "image deleted" }
+```
+
+**Errors:** `400` · `401` · `403` · `404` product or image not found
+
+---
+
+### Reorder Images
+
+`PUT /api/products/:id/images/reorder`  
+**Admin only.**
+
+Sets the display order by providing all image IDs for the product in the desired order. The first ID becomes position `0` (primary image).
+
+**Request body:**
+```json
+{
+  "image_ids": ["uuid-1", "uuid-2", "uuid-3"]
+}
+```
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `image_ids` | UUID[] | yes | must include **all** image IDs for this product |
+
 **Response `200`:**
 ```json
 {
   "success": true,
-  "message": "product deleted"
+  "data": [
+    { "id": "uuid-1", "product_id": "uuid", "url": "https://...", "position": 0, "created_at": "..." },
+    { "id": "uuid-2", "product_id": "uuid", "url": "https://...", "position": 1, "created_at": "..." },
+    { "id": "uuid-3", "product_id": "uuid", "url": "https://...", "position": 2, "created_at": "..." }
+  ]
 }
 ```
 
-**Errors:** `400` · `401` · `403` · `404`
+**Errors:** `400` wrong number of IDs or ID not found · `401` · `403` · `404`
 
 ---
 

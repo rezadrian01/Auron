@@ -101,6 +101,11 @@ func Setup(router *gin.Engine, cfg *config.Config) error {
 		adminProducts.POST("", toProductService)
 		adminProducts.PUT("/:id", toProductService)
 		adminProducts.DELETE("/:id", toProductService)
+
+		// Image management
+		adminProducts.POST("/:id/images", toProductService)
+		adminProducts.DELETE("/:id/images/:image_id", toProductService)
+		adminProducts.PUT("/:id/images/reorder", toProductService)
 	}
 
 	// Category routes — public read, admin write

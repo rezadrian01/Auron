@@ -1,11 +1,15 @@
 package cmd
 
 import (
-	"auron/product-service/internal/domain"
 	"context"
+	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
+
+	"auron/product-service/internal/domain"
+	gcsStorage "auron/product-service/internal/storage"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -35,19 +39,35 @@ func setupDatabase(databaseURL string) (*gorm.DB, error) {
 func runMigrations(db *gorm.DB) error {
 	// Skip AutoMigrate if tables already exist — GORM generates malformed ALTER
 	// statements when column types use precision specifiers (e.g. numeric(12,2))
-	// that differ only in name from what PostgreSQL reports. applySearchIndex
-	// is always re-run because its statements are idempotent (IF NOT EXISTS / OR REPLACE).
+	// that differ only in name from what PostgreSQL reports.
 	if !db.Migrator().HasTable(&domain.Product{}) {
-		if err := db.AutoMigrate(&domain.Category{}, &domain.Product{}, &domain.Inventory{}); err != nil {
+		if err := db.AutoMigrate(
+			&domain.Category{},
+			&domain.Product{},
+			&domain.Inventory{},
+		); err != nil {
 			return err
 		}
 	}
 
+	// product_images is managed via raw SQL so it is always created idempotently
+	// regardless of whether the products table already existed.
 	return applySearchIndex(db)
 }
 
 func applySearchIndex(db *gorm.DB) error {
 	statements := []string{
+		// product_images — idempotent, safe to run whether the table exists or not
+		`CREATE TABLE IF NOT EXISTS product_images (
+			id         UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+			product_id UUID      NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+			url        TEXT      NOT NULL,
+			position   INT       NOT NULL DEFAULT 0,
+			created_at TIMESTAMP NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id)`,
+
+		// full-text search vector
 		`ALTER TABLE products ADD COLUMN IF NOT EXISTS search_vector tsvector`,
 		`CREATE INDEX IF NOT EXISTS idx_products_search ON products USING GIN(search_vector)`,
 		`CREATE OR REPLACE FUNCTION products_search_vector_trigger() RETURNS trigger AS $$
@@ -89,6 +109,21 @@ func setupRedis(redisURL string) (*redis.Client, error) {
 	}
 
 	return client, nil
+}
+
+func setupGCS(ctx context.Context, bucketName, credJSON string) (domain.StorageService, error) {
+	if bucketName == "" {
+		log.Println("GCS_BUCKET_NAME not set — image upload disabled")
+		return domain.NoopStorage{}, nil
+	}
+
+	svc, err := gcsStorage.NewGCSStorage(ctx, bucketName, credJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialise GCS: %w", err)
+	}
+
+	log.Printf("GCS storage initialised (bucket: %s)", bucketName)
+	return svc, nil
 }
 
 func resolveGormLogLevel() logger.LogLevel {

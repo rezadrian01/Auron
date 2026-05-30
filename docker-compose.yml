@@ -91,6 +91,8 @@ services:
       - DATABASE_URL=postgres://auron:auron_pass@products-db:5432/products_db?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       - KAFKA_BROKERS=kafka:29092
+      - GCS_BUCKET_NAME=${GCS_BUCKET_NAME}
+      - GCS_CREDENTIALS_JSON=${GCS_CREDENTIALS_JSON}
     depends_on:
       products-db:
         condition: service_healthy

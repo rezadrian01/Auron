@@ -3,10 +3,12 @@ package cmd
 import "os"
 
 type appConfig struct {
-	Port         string
-	DatabaseURL  string
-	RedisURL     string
-	KafkaBrokers string
+	Port           string
+	DatabaseURL    string
+	RedisURL       string
+	KafkaBrokers   string
+	GCSBucketName  string
+	GCSCredentials string
 }
 
 func loadConfig() appConfig {
@@ -33,9 +35,11 @@ func loadConfig() appConfig {
 	}
 
 	return appConfig{
-		Port:         port,
-		DatabaseURL:  databaseURL,
-		RedisURL:     redisURL,
-		KafkaBrokers: kafkaBrokers,
+		Port:           port,
+		DatabaseURL:    databaseURL,
+		RedisURL:       redisURL,
+		KafkaBrokers:   kafkaBrokers,
+		GCSBucketName:  os.Getenv("GCS_BUCKET_NAME"),
+		GCSCredentials: os.Getenv("GCS_CREDENTIALS_JSON"),
 	}
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -37,10 +38,15 @@ func Run() {
 
 	publisher := setupKafkaPublisher(cfg.KafkaBrokers)
 
+	storageSvc, err := setupGCS(context.Background(), cfg.GCSBucketName, cfg.GCSCredentials)
+	if err != nil {
+		log.Fatalf("failed to set up GCS: %v", err)
+	}
+
 	repo := repository.NewProductRepository(db)
 	productCache := cache.NewProductCache(redisClient)
-	svc := service.NewProductService(repo, productCache, publisher)
-	h := handler.NewProductHandler(svc)
+	svc := service.NewProductService(repo, productCache, publisher, storageSvc)
+	h := handler.NewProductHandler(svc, storageSvc)
 
 	router := setupRouter(h)
 	registerGracefulShutdown(db, redisClient, publisher)

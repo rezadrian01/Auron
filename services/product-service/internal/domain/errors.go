@@ -19,7 +19,12 @@ var (
 	ErrInvalidLimitParam   = errors.New("limit must be >= 1 and <= 100")
 	ErrPriceMustBePositive = errors.New("price must be a positive number")
 
-	//generic
+	// image errors
+	ErrImageNotFound        = errors.New("image not found")
+	ErrStorageNotConfigured = errors.New("image storage is not configured")
+	ErrInvalidImageOrder    = errors.New("image_ids must include all images for the product")
+
+	// generic
 	ErrUnauthorized = errors.New("unauthorized")
 	ErrForbidden    = errors.New("forbidden")
 )

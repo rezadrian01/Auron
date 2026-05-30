@@ -1,11 +1,15 @@
 package cmd
 
 import (
-	"auron/product-service/internal/domain"
 	"context"
+	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
+
+	"auron/product-service/internal/domain"
+	gcsStorage "auron/product-service/internal/storage"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -33,12 +37,18 @@ func setupDatabase(databaseURL string) (*gorm.DB, error) {
 }
 
 func runMigrations(db *gorm.DB) error {
-	// Skip AutoMigrate if tables already exist — GORM generates malformed ALTER
-	// statements when column types use precision specifiers (e.g. numeric(12,2))
-	// that differ only in name from what PostgreSQL reports. applySearchIndex
-	// is always re-run because its statements are idempotent (IF NOT EXISTS / OR REPLACE).
 	if !db.Migrator().HasTable(&domain.Product{}) {
-		if err := db.AutoMigrate(&domain.Category{}, &domain.Product{}, &domain.Inventory{}); err != nil {
+		if err := db.AutoMigrate(
+			&domain.Category{},
+			&domain.Product{},
+			&domain.Inventory{},
+			&domain.ProductImage{},
+		); err != nil {
+			return err
+		}
+	} else {
+		// Ensure product_images table is created even if products table already exists.
+		if err := db.AutoMigrate(&domain.ProductImage{}); err != nil {
 			return err
 		}
 	}
@@ -89,6 +99,21 @@ func setupRedis(redisURL string) (*redis.Client, error) {
 	}
 
 	return client, nil
+}
+
+func setupGCS(ctx context.Context, bucketName, credJSON string) (domain.StorageService, error) {
+	if bucketName == "" {
+		log.Println("GCS_BUCKET_NAME not set — image upload disabled")
+		return domain.NoopStorage{}, nil
+	}
+
+	svc, err := gcsStorage.NewGCSStorage(ctx, bucketName, credJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialise GCS: %w", err)
+	}
+
+	log.Printf("GCS storage initialised (bucket: %s)", bucketName)
+	return svc, nil
 }
 
 func resolveGormLogLevel() logger.LogLevel {

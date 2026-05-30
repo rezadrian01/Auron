@@ -38,27 +38,35 @@ type Category struct {
 	CreatedAt time.Time  `json:"created_at" gorm:"not null;default:now()"`
 }
 
-func (Category) TableName() string {
-	return "categories"
+func (Category) TableName() string { return "categories" }
+
+// ProductImage represents a single image attached to a product.
+// Position 0 is the primary (display) image shown on product cards.
+type ProductImage struct {
+	ID        uuid.UUID `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	ProductID uuid.UUID `json:"product_id" gorm:"type:uuid;not null;index"`
+	URL       string    `json:"url" gorm:"type:text;not null"`
+	Position  int       `json:"position" gorm:"not null;default:0"`
+	CreatedAt time.Time `json:"created_at" gorm:"not null;default:now()"`
 }
+
+func (ProductImage) TableName() string { return "product_images" }
 
 type Product struct {
-	ID           uuid.UUID       `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	CategoryID   uuid.UUID       `json:"category_id" gorm:"type:uuid;not null;index"`
-	Name         string          `json:"name" gorm:"type:varchar(500);not null"`
-	Description  string          `json:"description" gorm:"type:text"`
-	Price        float64         `json:"price" gorm:"type:numeric(12,2);not null;index"`
-	ImageURL     string          `json:"image_url" gorm:"type:text"`
-	SearchVector string          `json:"-" gorm:"-"`
-	IsActive     bool            `json:"is_active" gorm:"not null;default:true;index"`
-	CreatedAt    time.Time       `json:"created_at" gorm:"not null;default:now()"`
-	UpdatedAt    time.Time       `json:"updated_at" gorm:"not null;default:now()"`
-	Category     *Category       `json:"category,omitempty" gorm:"foreignKey:CategoryID;references:ID"`
+	ID           uuid.UUID      `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	CategoryID   uuid.UUID      `json:"category_id" gorm:"type:uuid;not null;index"`
+	Name         string         `json:"name" gorm:"type:varchar(500);not null"`
+	Description  string         `json:"description" gorm:"type:text"`
+	Price        float64        `json:"price" gorm:"type:numeric(12,2);not null;index"`
+	Images       []ProductImage `json:"images,omitempty" gorm:"foreignKey:ProductID;references:ID;constraint:OnDelete:CASCADE"`
+	SearchVector string         `json:"-" gorm:"-"`
+	IsActive     bool           `json:"is_active" gorm:"not null;default:true;index"`
+	CreatedAt    time.Time      `json:"created_at" gorm:"not null;default:now()"`
+	UpdatedAt    time.Time      `json:"updated_at" gorm:"not null;default:now()"`
+	Category     *Category      `json:"category,omitempty" gorm:"foreignKey:CategoryID;references:ID"`
 }
 
-func (Product) TableName() string {
-	return "products"
-}
+func (Product) TableName() string { return "products" }
 
 type Inventory struct {
 	ProductID        uuid.UUID `json:"product_id" gorm:"type:uuid;primaryKey"`
@@ -68,11 +76,8 @@ type Inventory struct {
 	UpdatedAt        time.Time `json:"updated_at" gorm:"not null;default:now()"`
 }
 
-func (Inventory) TableName() string {
-	return "inventory"
-}
+func (Inventory) TableName() string { return "inventory" }
 
-// AvailableQuantity returns the stock available for purchase.
 func (i *Inventory) AvailableQuantity() int {
 	return i.TotalQuantity - i.ReservedQuantity
 }
@@ -87,13 +92,18 @@ type CategoryRequest struct {
 	ParentID *uuid.UUID `json:"parent_id,omitempty"`
 }
 
+// ProductRequest no longer includes ImageURL — images are managed via
+// POST /products/:id/images after the product is created.
 type ProductRequest struct {
-	CategoryID  uuid.UUID       `json:"category_id" binding:"required"`
-	Name        string          `json:"name" binding:"required,max=500"`
-	Description string          `json:"description" binding:"required"`
-	Price       float64         `json:"price" binding:"required,gt=0"`
-	ImageURL    string          `json:"image_url" binding:"omitempty,url"`
-	IsActive    *bool           `json:"is_active"`
+	CategoryID  uuid.UUID `json:"category_id" binding:"required"`
+	Name        string    `json:"name" binding:"required,max=500"`
+	Description string    `json:"description" binding:"required"`
+	Price       float64   `json:"price" binding:"required,gt=0"`
+	IsActive    *bool     `json:"is_active"`
+}
+
+type ReorderImagesRequest struct {
+	ImageIDs []uuid.UUID `json:"image_ids" binding:"required,min=1"`
 }
 
 // ============================================================
@@ -109,16 +119,17 @@ type CategoryResponse struct {
 }
 
 type ProductResponse struct {
-	ID          uuid.UUID       `json:"id"`
-	CategoryID  uuid.UUID       `json:"category_id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Price       float64         `json:"price"`
-	ImageURL    string          `json:"image_url,omitempty"`
-	IsActive    bool            `json:"is_active"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
-	Category    *Category       `json:"category,omitempty"`
+	ID          uuid.UUID      `json:"id"`
+	CategoryID  uuid.UUID      `json:"category_id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Price       float64        `json:"price"`
+	ImageURL    string         `json:"image_url"` // computed: images[0].URL or ""
+	Images      []ProductImage `json:"images"`
+	IsActive    bool           `json:"is_active"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	Category    *Category      `json:"category,omitempty"`
 }
 
 type InventoryResponse struct {
@@ -134,7 +145,6 @@ type InventoryResponse struct {
 // HELPER FUNCTIONS
 // ============================================================
 
-// ToResponse converts a Product entity to its response DTO.
 func (p *Product) ToResponse() *ProductResponse {
 	resp := &ProductResponse{
 		ID:          p.ID,
@@ -142,20 +152,21 @@ func (p *Product) ToResponse() *ProductResponse {
 		Name:        p.Name,
 		Description: p.Description,
 		Price:       p.Price,
-		ImageURL:    p.ImageURL,
+		Images:      p.Images,
 		IsActive:    p.IsActive,
 		CreatedAt:   p.CreatedAt,
 		UpdatedAt:   p.UpdatedAt,
+		Category:    p.Category,
 	}
-
-	if p.Category != nil {
-		resp.Category = p.Category
+	if resp.Images == nil {
+		resp.Images = []ProductImage{} // always array, never null in JSON
 	}
-
+	if len(p.Images) > 0 {
+		resp.ImageURL = p.Images[0].URL // position 0 = primary
+	}
 	return resp
 }
 
-// ToResponse converts a Category entity to its response DTO.
 func (c *Category) ToResponse() *CategoryResponse {
 	return &CategoryResponse{
 		ID:        c.ID,
@@ -166,7 +177,6 @@ func (c *Category) ToResponse() *CategoryResponse {
 	}
 }
 
-// ToResponse converts an Inventory entity to its response DTO.
 func (i *Inventory) ToResponse() *InventoryResponse {
 	return &InventoryResponse{
 		ProductID:         i.ProductID,

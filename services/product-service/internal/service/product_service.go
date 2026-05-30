@@ -15,13 +15,20 @@ type ProductService struct {
 	repository domain.ProductRepository
 	cache      domain.ProductCache
 	publisher  domain.EventPublisher
+	storage    domain.StorageService
 }
 
-func NewProductService(repo domain.ProductRepository, cache domain.ProductCache, publisher domain.EventPublisher) domain.ProductService {
+func NewProductService(
+	repo domain.ProductRepository,
+	cache domain.ProductCache,
+	publisher domain.EventPublisher,
+	storage domain.StorageService,
+) domain.ProductService {
 	return &ProductService{
 		repository: repo,
 		cache:      cache,
 		publisher:  publisher,
+		storage:    storage,
 	}
 }
 
@@ -92,7 +99,6 @@ func (s *ProductService) CreateProduct(ctx context.Context, req domain.ProductRe
 		Name:        req.Name,
 		Description: req.Description,
 		Price:       req.Price,
-		ImageURL:    req.ImageURL,
 		IsActive:    true,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -138,7 +144,6 @@ func (s *ProductService) UpdateProduct(ctx context.Context, id uuid.UUID, req do
 	existing.Name = req.Name
 	existing.Description = req.Description
 	existing.Price = req.Price
-	existing.ImageURL = req.ImageURL
 	existing.UpdatedAt = time.Now()
 	if req.IsActive != nil {
 		existing.IsActive = *req.IsActive
@@ -170,8 +175,20 @@ func (s *ProductService) DeleteProduct(ctx context.Context, id uuid.UUID) error 
 		return err
 	}
 
+	// Fetch images before DB delete for GCS cleanup.
+	images, _ := s.repository.GetProductImages(id) // best-effort; errors are non-fatal
+
 	if err := s.repository.DeleteProduct(id); err != nil {
 		return err
+	}
+
+	// Delete GCS objects for all product images — best-effort after DB row is gone.
+	for _, img := range images {
+		if objName, ok := s.storage.ObjectNameFromURL(img.URL); ok {
+			if err := s.storage.DeleteImage(ctx, objName); err != nil {
+				slog.Warn("failed to delete GCS object on product delete", "url", img.URL, "error", err)
+			}
+		}
 	}
 
 	if err := s.cache.DeleteProduct(ctx, id.String()); err != nil {
@@ -207,6 +224,92 @@ func (s *ProductService) CreateCategory(ctx context.Context, req domain.Category
 	return s.repository.CreateCategory(category)
 }
 
+// ── Image methods ─────────────────────────────────────────────────────────────
+
+func (s *ProductService) AddProductImage(ctx context.Context, productID uuid.UUID, url string) (*domain.ProductImage, error) {
+	if _, err := s.repository.GetProductByID(productID); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.repository.GetProductImages(productID)
+	if err != nil {
+		return nil, err
+	}
+
+	image := &domain.ProductImage{
+		ID:        uuid.New(),
+		ProductID: productID,
+		URL:       url,
+		Position:  len(existing), // append after current last
+		CreatedAt: time.Now(),
+	}
+
+	created, err := s.repository.AddProductImage(image)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = s.cache.DeleteProduct(ctx, productID.String())
+	_ = s.cache.InvalidateProductList(ctx)
+
+	return created, nil
+}
+
+func (s *ProductService) DeleteProductImage(ctx context.Context, productID, imageID uuid.UUID) (*domain.ProductImage, error) {
+	image, err := s.repository.GetProductImage(productID, imageID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repository.DeleteProductImage(productID, imageID); err != nil {
+		return nil, err
+	}
+
+	_ = s.cache.DeleteProduct(ctx, productID.String())
+	_ = s.cache.InvalidateProductList(ctx)
+
+	return image, nil
+}
+
+func (s *ProductService) ReorderProductImages(ctx context.Context, productID uuid.UUID, imageIDs []uuid.UUID) ([]domain.ProductImage, error) {
+	existing, err := s.repository.GetProductImages(productID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(imageIDs) != len(existing) {
+		return nil, domain.ErrInvalidImageOrder
+	}
+
+	imageMap := make(map[uuid.UUID]*domain.ProductImage, len(existing))
+	for i := range existing {
+		imageMap[existing[i].ID] = &existing[i]
+	}
+
+	reordered := make([]domain.ProductImage, 0, len(imageIDs))
+	for pos, id := range imageIDs {
+		img, ok := imageMap[id]
+		if !ok {
+			return nil, domain.ErrImageNotFound
+		}
+		img.Position = pos
+		reordered = append(reordered, *img)
+	}
+
+	if err := s.repository.UpdateProductImagePositions(reordered); err != nil {
+		return nil, err
+	}
+
+	_ = s.cache.DeleteProduct(ctx, productID.String())
+	_ = s.cache.InvalidateProductList(ctx)
+
+	return reordered, nil
+}
+
+func (s *ProductService) GetProductImages(ctx context.Context, productID uuid.UUID) ([]domain.ProductImage, error) {
+	return s.repository.GetProductImages(productID)
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func normalizeFilter(f *domain.ProductFilter) error {
@@ -228,8 +331,6 @@ func normalizeFilter(f *domain.ProductFilter) error {
 	return nil
 }
 
-// buildListCacheKey produces a deterministic cache key for a product list query.
-// All pointer fields are nil-safe.
 func buildListCacheKey(f domain.ProductFilter) string {
 	categoryID := ""
 	if f.CategoryID != nil {
